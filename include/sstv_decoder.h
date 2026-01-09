@@ -16,7 +16,7 @@ namespace sstv {
 // The top-level SSTV Decoder class
 class Decoder {
 public:
-    Decoder(double sample_rate = 11025.0);
+    explicit Decoder(double sample_rate = 11025.0);
     ~Decoder();
 
     // Core entry point: Push audio samples into the decoder
