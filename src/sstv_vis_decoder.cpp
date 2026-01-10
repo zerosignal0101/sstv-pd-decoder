@@ -99,7 +99,8 @@ bool VISDecoder::process_frequency(const double& freq) {
         case State::LEADER_BURST_2:
             if (is_freq_near(freq, VIS_LEADER_BURST_FREQ)) {
                 if (m_state_timer_samples >= (VIS_LEADER_BURST_DURATION_MS * m_samples_per_ms)) {
-                    std::cout << "Transition to START_BIT" << std::endl;
+                    // // Debug info
+                    // std::cout << "Transition to START_BIT" << std::endl;
                     transition_to(State::START_BIT);
                 }
             } else {
@@ -154,7 +155,8 @@ bool VISDecoder::process_frequency(const double& freq) {
                 bool parity_ok = ((ones + p_bit) % 2 == 0);
 
                 if (parity_ok) {
-                    std::cout << "Parity OK: " << ones << std::endl;
+                    // // Debug info
+                    // std::cout << "Parity OK: " << ones << std::endl;
                     transition_to(State::STOP_BIT);
                 }
                 else {

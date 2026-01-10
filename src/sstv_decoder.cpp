@@ -109,11 +109,13 @@ void Decoder::handle_mode_detected(const SSTVMode& mode) {
     }
     
     if (m_mode_is_pd120) {
-        std::cout << "Mode detected: " << mode.name << ". Starting PD120 demodulation." << std::endl;
+        // // Debug info
+        // std::cout << "Mode detected: " << mode.name << ". Starting PD120 demodulation." << std::endl;
         m_state = State::DECODING_IMAGE_DATA;
         m_pd120_demodulator->reset(); // Ensure PD120 demodulator is ready
     } else {
-        std::cout << "Mode detected: " << mode.name << ". Not PD120. Resetting." << std::endl;
+        // // Debug info
+        // std::cout << "Mode detected: " << mode.name << ". Not PD120. Resetting." << std::endl;
         // For other modes, we'd transition to their specific demodulators,
         // but for this example, we just reset if it's not PD120.
         reset(); 
@@ -122,13 +124,15 @@ void Decoder::handle_mode_detected(const SSTVMode& mode) {
 
 void Decoder::handle_line_decoded(int line_idx, const std::vector<Pixel>& pixels) {
     if (m_on_line_decoded_cb) {
-        std::cout << "Current sample idx: " << static_cast<uint32_t>(m_sample_timer) << ", Time: " << m_sample_timer / m_sample_rate << std::endl;
+        // Debug info
+        // std::cout << "Current sample idx: " << static_cast<uint32_t>(m_sample_timer) << ", Time: " << m_sample_timer / m_sample_rate << std::endl;
         m_on_line_decoded_cb(line_idx, pixels);
     }
 }
 
 void Decoder::handle_image_complete(int width, int height) {
-    std::cout << "Image transmission complete (" << width << "x" << height << ")." << std::endl;
+    // // Debug info
+    // std::cout << "Image transmission complete (" << width << "x" << height << ")." << std::endl;
     if (m_on_image_complete_cb) {
         m_on_image_complete_cb(width, height);
     }
