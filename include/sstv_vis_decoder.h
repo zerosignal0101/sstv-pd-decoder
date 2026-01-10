@@ -12,7 +12,7 @@ namespace sstv {
         VISDecoder(double sample_rate, ModeDetectedCallback on_mode_detected_cb);
 
         // 处理频率序列，返回是否检测到完整 VIS
-        bool process_frequencies(const std::vector<double>& frequencies);
+        bool process_frequency(const double& freq);
         void reset();
 
     private:

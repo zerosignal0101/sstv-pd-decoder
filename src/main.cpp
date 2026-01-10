@@ -20,9 +20,7 @@ int main() {
         });
 
     sstv_decoder.set_on_line_decoded_callback([](int line_idx, const std::vector<Pixel>& pixels) {
-        if (line_idx < 10 || line_idx > PD120ModeConfig::HEIGHT - 10) { // Log first/last few lines
-            std::cout << "MAIN: Line Decoded: " << line_idx << ", Pixels: " << pixels.size() << " (R:" << (int)pixels[0].r << ", G:" << (int)pixels[0].g << ", B:" << (int)pixels[0].b << " ...)" << std::endl;
-        }
+        std::cout << "MAIN: Line Decoded: " << line_idx << ", Pixels: " << pixels.size() << " (R:" << (int)pixels[0].r << ", G:" << (int)pixels[0].g << ", B:" << (int)pixels[0].b << " ...)" << std::endl;
         });
 
     sstv_decoder.set_on_image_complete_callback([](int width, int height) {
@@ -55,7 +53,7 @@ int main() {
     file.close();
     
     // Simulate real-time processing
-    const size_t chunk_size = 1024; // Process in small blocks
+    const size_t chunk_size = 2048; // Process in small blocks
     std::cout << "\nStarting SSTV Demodulation Simulation...\n" << std::endl;
 
     for (size_t i = 0; i < full_audio_signal.size(); i += chunk_size) {

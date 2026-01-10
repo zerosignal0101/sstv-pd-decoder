@@ -3,11 +3,12 @@
 
 namespace sstv {
 
-constexpr int FIR_TAP_COUNT = 100; // Example tap count, adjust for desired filter quality
+constexpr int FIR_TAP_COUNT = 101; // Example tap count, adjust for desired filter quality
 constexpr double INTERNAL_SAMPLE_RATE = 11025.0; // Target sample rate for internal processing
 
 Decoder::Decoder(double sample_rate)
     : m_state(State::SEARCHING_VIS),
+      m_sample_timer(0.0),
       m_sample_rate(sample_rate),
       m_mode_is_pd120(false)
 {
@@ -59,35 +60,41 @@ void Decoder::process(const float* samples, size_t count) {
     m_bandpass_filter->process_block(samples, filtered_samples.data(), count);
 
     std::vector<double> estimated_frequencies = m_freq_estimator->process_block(filtered_samples.data(), count);
-    
-    switch (m_state) {
-        case State::SEARCHING_VIS: {
-            bool vis_decoded = m_vis_decoder->process_frequencies(estimated_frequencies);
-            if (vis_decoded) {
-                // State change handled by `handle_mode_detected` callback
-            }
-            break;
-        }
-        case State::DECODING_IMAGE_DATA: {
-            if (m_mode_is_pd120) {
-                // Convert frequencies to pixel values for PD120Demodulator
-                std::vector<uint8_t> pixel_values(estimated_frequencies.size());
-                for(size_t i = 0; i < estimated_frequencies.size(); ++i) {
-                    pixel_values[i] = dsp::freq_to_pixel_value(estimated_frequencies[i]);
+
+    // // Debug freq output
+    // for (double freq : estimated_frequencies) {
+    //     std::cout << freq << ", ";
+    // }
+    // std::cout << std::endl;
+    // return;
+
+    for (double freq : estimated_frequencies) {
+        m_sample_timer += 1.0;
+        switch (m_state) {
+            case State::SEARCHING_VIS: {
+                bool vis_decoded = m_vis_decoder->process_frequency(freq);
+                if (vis_decoded) {
+                    // State change handled by `handle_mode_detected` callback
                 }
-                m_pd120_demodulator->process_pixel_values(pixel_values);
+                break;
             }
-            // Add logic for other modes here if implemented
-            break;
-        }
-        case State::IMAGE_COMPLETE: {
-            // Wait for a reset or a new transmission to start
-            break;
-        }
-        case State::DECODING_IMAGE_HEADER: {
-            // Not implemented for PD120, but other modes might have post-VIS headers
-            m_state = State::DECODING_IMAGE_DATA; // Fall through for PD120
-            break;
+            case State::DECODING_IMAGE_DATA: {
+                if (m_mode_is_pd120) {
+                    // 直接传递 double 类型的频率向量
+                    m_pd120_demodulator->process_frequency(freq);
+                }
+                // Add logic for other modes here if implemented
+                break;
+            }
+            case State::IMAGE_COMPLETE: {
+                // Wait for a reset or a new transmission to start
+                break;
+            }
+            case State::DECODING_IMAGE_HEADER: {
+                // Not implemented for PD120, but other modes might have post-VIS headers
+                m_state = State::DECODING_IMAGE_DATA; // Fall through for PD120
+                break;
+            }
         }
     }
 }
@@ -115,6 +122,7 @@ void Decoder::handle_mode_detected(const SSTVMode& mode) {
 
 void Decoder::handle_line_decoded(int line_idx, const std::vector<Pixel>& pixels) {
     if (m_on_line_decoded_cb) {
+        std::cout << "Current sample idx: " << static_cast<uint32_t>(m_sample_timer) << ", Time: " << m_sample_timer / m_sample_rate << std::endl;
         m_on_line_decoded_cb(line_idx, pixels);
     }
 }

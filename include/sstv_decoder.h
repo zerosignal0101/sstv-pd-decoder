@@ -40,6 +40,7 @@ private:
         IMAGE_COMPLETE
     };
     State m_state;
+    double m_sample_timer;
     double m_sample_rate;
 
     // DSP Components

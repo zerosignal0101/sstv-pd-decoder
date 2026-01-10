@@ -33,158 +33,156 @@ bool VISDecoder::is_freq_near(double freq, double target, double tolerance) {
     return std::abs(freq - target) < tolerance;
 }
 
-bool VISDecoder::process_frequencies(const std::vector<double>& frequencies) {
-    for (double freq : frequencies) {
-        m_state_timer_samples += 1.0;
+bool VISDecoder::process_frequency(const double& freq) {
+    m_state_timer_samples += 1.0;
 
-        // 鲁棒性检查：如果频率完全丢失（0），快速重置
-        if (freq < 100.0) {
-            reset();
-            continue;
-        }
+    // 鲁棒性检查：如果频率完全丢失（0），快速重置
+    if (freq < 100.0) {
+        reset();
+        return false;
+    }
 
-        switch (m_state) {
-            case State::IDLE:
-                // 寻找第一个前导音 (1900Hz)
-                if (is_freq_near(freq, DEFAULT_PREAMBLE_TONES[0].frequency)) {
-                    if (m_state_timer_samples >= ((DEFAULT_PREAMBLE_TONES[0].duration_ms - 5.0) * m_samples_per_ms)) {
-                        m_preamble_step = 1; // 已经完成第0个音
-                        transition_to(State::PREAMBLE);
-                    }
-                } else {
-                    m_state_timer_samples = 0; // 频率不对，重置计时
+    switch (m_state) {
+        case State::IDLE:
+            // 寻找第一个前导音 (1900Hz)
+            if (is_freq_near(freq, DEFAULT_PREAMBLE_TONES[0].frequency)) {
+                if (m_state_timer_samples >= ((DEFAULT_PREAMBLE_TONES[0].duration_ms - 5.0) * m_samples_per_ms)) {
+                    m_preamble_step = 1; // 已经完成第0个音
+                    transition_to(State::PREAMBLE);
                 }
-                break;
-
-            case State::PREAMBLE: {
-                const auto& target_tone = DEFAULT_PREAMBLE_TONES[m_preamble_step];
-                if (is_freq_near(freq, target_tone.frequency)) {
-                    if (m_state_timer_samples >= (target_tone.duration_ms * m_samples_per_ms)) {
-                        m_preamble_step++;
-                        // 进入下一个前缀检测，误差归零，计数器归零
-                        m_error_count = 0;
-                        m_state_timer_samples = 0;
-                        if (m_preamble_step >= DEFAULT_PREAMBLE_TONES.size()) {
-                            transition_to(State::LEADER_BURST_1);
-                        }
-                    }
-                } else {
-                    // 允许短时间误差
-                    if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) {
-                        reset();
-                    };
-                }
-                break;
+            } else {
+                m_state_timer_samples = 0; // 频率不对，重置计时
             }
+            break;
 
-            case State::LEADER_BURST_1:
-                if (is_freq_near(freq, VIS_LEADER_BURST_FREQ)) {
-                    if (m_state_timer_samples >= (VIS_LEADER_BURST_DURATION_MS * m_samples_per_ms)) {
-                        transition_to(State::BREAK_1200);
+        case State::PREAMBLE: {
+            const auto& target_tone = DEFAULT_PREAMBLE_TONES[m_preamble_step];
+            if (is_freq_near(freq, target_tone.frequency)) {
+                if (m_state_timer_samples >= (target_tone.duration_ms * m_samples_per_ms)) {
+                    m_preamble_step++;
+                    // 进入下一个前缀检测，误差归零，计数器归零
+                    m_error_count = 0;
+                    m_state_timer_samples = 0;
+                    if (m_preamble_step >= DEFAULT_PREAMBLE_TONES.size()) {
+                        transition_to(State::LEADER_BURST_1);
                     }
-                } else {
-                    if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
                 }
-                break;
+            } else {
+                // 允许短时间误差
+                if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) {
+                    reset();
+                };
+            }
+            break;
+        }
 
-            case State::BREAK_1200:
-                if (is_freq_near(freq, VIS_BREAK_FREQ)) {
-                    if (m_state_timer_samples >= (VIS_BREAK_DURATION_MS * m_samples_per_ms)) {
-                        transition_to(State::LEADER_BURST_2);
-                    }
-                } else {
-                    if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
+        case State::LEADER_BURST_1:
+            if (is_freq_near(freq, VIS_LEADER_BURST_FREQ)) {
+                if (m_state_timer_samples >= (VIS_LEADER_BURST_DURATION_MS * m_samples_per_ms)) {
+                    transition_to(State::BREAK_1200);
                 }
-                break;
+            } else {
+                if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
+            }
+            break;
 
-            case State::LEADER_BURST_2:
-                if (is_freq_near(freq, VIS_LEADER_BURST_FREQ)) {
-                    if (m_state_timer_samples >= (VIS_LEADER_BURST_DURATION_MS * m_samples_per_ms)) {
-                        std::cout << "Transition to START_BIT" << std::endl;
-                        transition_to(State::START_BIT);
-                    }
-                } else {
-                    if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
+        case State::BREAK_1200:
+            if (is_freq_near(freq, VIS_BREAK_FREQ)) {
+                if (m_state_timer_samples >= (VIS_BREAK_DURATION_MS * m_samples_per_ms)) {
+                    transition_to(State::LEADER_BURST_2);
                 }
-                break;
+            } else {
+                if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
+            }
+            break;
 
-            case State::START_BIT:
-                if (is_freq_near(freq, VIS_START_STOP_FREQ)) {
-                    if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
-                        transition_to(State::DATA_BITS);
-                    }
-                } else {
-                    if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
+        case State::LEADER_BURST_2:
+            if (is_freq_near(freq, VIS_LEADER_BURST_FREQ)) {
+                if (m_state_timer_samples >= (VIS_LEADER_BURST_DURATION_MS * m_samples_per_ms)) {
+                    std::cout << "Transition to START_BIT" << std::endl;
+                    transition_to(State::START_BIT);
                 }
-                break;
+            } else {
+                if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
+            }
+            break;
 
-            case State::DATA_BITS:
-                m_bit_freq_accumulator += freq;
-                m_bit_sample_count++;
-
+        case State::START_BIT:
+            if (is_freq_near(freq, VIS_START_STOP_FREQ)) {
                 if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
-                    double avg_f = m_bit_freq_accumulator / m_bit_sample_count;
-                    int bit = -1;
-                    if (is_freq_near(avg_f, VIS_LOGIC_1_FREQ, 80.0)) bit = 1;
-                    else if (is_freq_near(avg_f, VIS_LOGIC_0_FREQ, 80.0)) bit = 0;
+                    transition_to(State::DATA_BITS);
+                }
+            } else {
+                if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
+            }
+            break;
 
-                    if (bit != -1) {
-                        m_decoded_vis_bits |= (bit << m_bit_count);
-                        m_bit_count++;
-                        m_state_timer_samples = 0; // 重置计时器以处理下一位
-                        m_bit_freq_accumulator = 0;
-                        m_bit_sample_count = 0;
-                        if (m_bit_count >= 7) transition_to(State::PARITY_BIT);
+        case State::DATA_BITS:
+            m_bit_freq_accumulator += freq;
+            m_bit_sample_count++;
+
+            if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
+                double avg_f = m_bit_freq_accumulator / m_bit_sample_count;
+                int bit = -1;
+                if (is_freq_near(avg_f, VIS_LOGIC_1_FREQ, 80.0)) bit = 1;
+                else if (is_freq_near(avg_f, VIS_LOGIC_0_FREQ, 80.0)) bit = 0;
+
+                if (bit != -1) {
+                    m_decoded_vis_bits |= (bit << m_bit_count);
+                    m_bit_count++;
+                    m_state_timer_samples = 0; // 重置计时器以处理下一位
+                    m_bit_freq_accumulator = 0;
+                    m_bit_sample_count = 0;
+                    if (m_bit_count >= 7) transition_to(State::PARITY_BIT);
+                } else {
+                    reset(); // 位频率无法识别
+                }
+            }
+            break;
+
+        case State::PARITY_BIT:
+            m_bit_freq_accumulator += freq;
+            m_bit_sample_count++;
+
+            if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
+                double avg_f = m_bit_freq_accumulator / m_bit_sample_count;
+                int p_bit = is_freq_near(avg_f, VIS_LOGIC_1_FREQ, 80.0) ? 1 : 0;
+
+                // 偶校验检查
+                int ones = 0;
+                for(int i=0; i<7; ++i) if((m_decoded_vis_bits >> i) & 1) ones++;
+                bool parity_ok = ((ones + p_bit) % 2 == 0);
+
+                if (parity_ok) {
+                    std::cout << "Parity OK: " << ones << std::endl;
+                    transition_to(State::STOP_BIT);
+                }
+                else {
+                    std::cerr << "VIS: Parity Error" << std::endl;
+                    reset();
+                }
+            }
+            break;
+
+        case State::STOP_BIT:
+            if (is_freq_near(freq, VIS_START_STOP_FREQ)) {
+                if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
+                    auto it = VIS_MODE_MAP.find(m_decoded_vis_bits);
+                    if (it != VIS_MODE_MAP.end()) {
+                        m_on_mode_detected(it->second);
+                        m_state = State::COMPLETE;
+                        return true;
                     } else {
-                        reset(); // 位频率无法识别
-                    }
-                }
-                break;
-
-            case State::PARITY_BIT:
-                m_bit_freq_accumulator += freq;
-                m_bit_sample_count++;
-
-                if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
-                    double avg_f = m_bit_freq_accumulator / m_bit_sample_count;
-                    int p_bit = is_freq_near(avg_f, VIS_LOGIC_1_FREQ, 80.0) ? 1 : 0;
-
-                    // 偶校验检查
-                    int ones = 0;
-                    for(int i=0; i<7; ++i) if((m_decoded_vis_bits >> i) & 1) ones++;
-                    bool parity_ok = ((ones + p_bit) % 2 == 0);
-
-                    if (parity_ok) {
-                        std::cout << "Parity OK: " << ones << std::endl;
-                        transition_to(State::STOP_BIT);
-                    }
-                    else {
-                        std::cerr << "VIS: Parity Error" << std::endl;
                         reset();
                     }
                 }
-                break;
+            } else {
+                if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
+            }
+            break;
 
-            case State::STOP_BIT:
-                if (is_freq_near(freq, VIS_START_STOP_FREQ)) {
-                    if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
-                        auto it = VIS_MODE_MAP.find(m_decoded_vis_bits);
-                        if (it != VIS_MODE_MAP.end()) {
-                            m_on_mode_detected(it->second);
-                            m_state = State::COMPLETE;
-                            return true;
-                        } else {
-                            reset();
-                        }
-                    }
-                } else {
-                    if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
-                }
-                break;
-
-            case State::COMPLETE:
-                return true;
-        }
+        case State::COMPLETE:
+            return true;
     }
     return (m_state == State::COMPLETE);
 }
