@@ -13,6 +13,15 @@ set(CMAKE_CXX_EXTENSIONS OFF) # 禁用 GNU 扩展
 set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 REQUIRED)
 
+# --- 使用 FetchContent 获取 libsamplerate ---
+include(FetchContent)
+FetchContent_Declare(
+        libsamplerate
+        GIT_REPOSITORY https://github.com/libsndfile/libsamplerate.git
+        GIT_TAG        0.2.2 # 或者使用特定的 commit hash
+)
+FetchContent_MakeAvailable(libsamplerate)
+
 include_directories(${PROJECT_SOURCE_DIR}/include)
 file(GLOB SOURCES "src/*.cpp")
 
@@ -21,6 +30,10 @@ pybind11_add_module(_core ${SOURCES} bindings/python_bindings.cpp)
 add_executable(sstv_demod 
     ${SOURCES}
 )
+
+# 链接 libsamplerate
+target_link_libraries(sstv_demod PRIVATE SampleRate::samplerate)
+target_link_libraries(_core PRIVATE SampleRate::samplerate)
 
 # 可选：设置输出目录
 set_target_properties(sstv_demod PROPERTIES

@@ -4,7 +4,6 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <thread>
 #include <chrono>
 
 using namespace sstv;

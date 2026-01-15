@@ -1,43 +1,34 @@
 #pragma once
 
 #include <vector>
-#include <cstdint>
-#include <algorithm>
+#include <samplerate.h> // libsamplerate 头文件
 
 namespace sstv::dsp {
 
     class Resampler {
     public:
         /**
-         * @param input_rate 原始输入采样率 (如 48000)
+         * @param input_rate 原始采样率 (48000)
          * @param target_rate 目标采样率 (11025)
-         * @param num_phases 相位密度，越高抗混叠越好，建议 32-64
+         * @param quality 质量等级：
+         *        SRC_SINC_BEST_QUALITY (最慢, 97dB SNR)
+         *        SRC_SINC_MEDIUM_QUALITY (推荐)
+         *        SRC_SINC_FASTEST (最快, 适用于性能受限环境)
          */
-        Resampler(double input_rate, double target_rate, int num_phases = 64);
+        Resampler(double input_rate, double target_rate, int quality = SRC_SINC_MEDIUM_QUALITY);
+        ~Resampler();
 
-        /**
-         * 处理音频块。支持流式处理，内部维护历史状态。
-         */
+        // 禁止拷贝，因为 SRC_STATE 是指针
+        Resampler(const Resampler&) = delete;
+        Resampler& operator=(const Resampler&) = delete;
+
         std::vector<float> process_block(const float* input, size_t count);
-
         void reset();
 
     private:
-        double m_input_rate;
-        double m_target_rate;
-        double m_ratio;             // input_rate / target_rate
-
-        int m_num_phases;
-        int m_taps_per_phase;       // 每个相位的抽头数
-
-        // 多相滤波器组 [phase][tap]
-        std::vector<std::vector<float>> m_filter_bank;
-
-        // 状态维护
-        std::vector<float> m_history;
-        double m_output_index_frac; // 指向输入流的浮点索引
-
-        void design_filter();
+        SRC_STATE* m_src_state;
+        double m_ratio;
+        int m_error;
     };
 
 } // namespace sstv::dsp
