@@ -3,7 +3,7 @@
 
 namespace sstv {
 
-constexpr int FIR_TAP_COUNT = 101; // Example tap count, adjust for desired filter quality
+constexpr int FIR_TAP_COUNT = 31; // Example tap count, adjust for desired filter quality
 constexpr double INTERNAL_SAMPLE_RATE = 11025.0; // Target sample rate for internal processing
 
 Decoder::Decoder(double sample_rate)

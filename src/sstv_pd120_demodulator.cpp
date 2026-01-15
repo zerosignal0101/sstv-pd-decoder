@@ -45,23 +45,17 @@ bool PD120Demodulator::process_frequency(double freq) {
             break;
 
         case SegmentType::SYNC:
-            // 逻辑优化：如果时间到了，或者频率明显变成了 Porch (1500Hz) 且时间已经过半
-            // 这允许我们根据信号特征自动对齐，而不是死板地等待时间
+            // 寻找下降沿：如果之前在 1200 附近，现在更接近 1500
+            if (m_segment_timer > (10.0 * m_samples_per_ms)) { // 至少持续了 10ms
+                if (std::abs(freq - BLACK_FREQ) < std::abs(freq - SYNC_FREQ)) {
+                    m_current_segment = SegmentType::PORCH;
+                    m_segment_timer = 0; // 这里的 0 点比单纯靠时间计时准确得多
+                    break;
+                }
+            }
             if (m_segment_timer >= sync_duration_samples) {
                 m_current_segment = SegmentType::PORCH;
-                m_segment_timer = 0; // Sync 之后是硬对齐，重新计数
-            }
-            // 提前检测 Porch 转换 (Smart Sync):
-            // 如果已经在 Sync 里待了超过 15ms，且频率接近 1500Hz，强制进入 Porch
-            else if (m_segment_timer > (15.0 * m_samples_per_ms) && std::abs(freq - BLACK_FREQ) < FREQ_TOLERANCE) {
-                m_current_segment = SegmentType::PORCH;
                 m_segment_timer = 0;
-            }
-            else if (std::abs(freq - SYNC_FREQ) > FREQ_TOLERANCE * 2) {
-                // 只有在极短时间内丢失信号才认为是噪声并重置
-                if (m_segment_timer < (5.0 * m_samples_per_ms)) {
-                    m_current_segment = SegmentType::IDLE;
-                }
             }
             break;
 
@@ -114,9 +108,6 @@ bool PD120Demodulator::process_frequency(double freq) {
     return false;
 }
 
-// ... 其余函数 (resample_segment, finalize_line_group, ycbcr_to_rgb) 保持不变 ...
-// ... 记得把 resample_segment 等函数的实现也放进来，或者只替换上面的 process_frequency ...
-// 此处省略其余未变动代码以节省空间
 void PD120Demodulator::process_current_segment() {
     std::vector<uint8_t> pixels = resample_segment(m_segment_buffer, PD120ModeConfig::WIDTH);
     switch (m_current_segment) {
@@ -132,10 +123,16 @@ std::vector<uint8_t> PD120Demodulator::resample_segment(const std::vector<double
     if (buffer.empty()) return std::vector<uint8_t>(target_count, 0);
     std::vector<uint8_t> result(target_count);
     double src_size = static_cast<double>(buffer.size());
+
     for (int i = 0; i < target_count; ++i) {
         double pos = (static_cast<double>(i) / target_count) * src_size;
-        size_t idx = std::clamp(static_cast<size_t>(pos), (size_t)0, buffer.size() - 1);
-        result[i] = dsp::freq_to_pixel_value(buffer[idx]);
+        size_t idx_a = static_cast<size_t>(pos);
+        size_t idx_b = std::min(idx_a + 1, buffer.size() - 1);
+        double weight = pos - idx_a;
+
+        // 线性插值频率，然后再转像素值
+        double interpolated_freq = buffer[idx_a] * (1.0 - weight) + buffer[idx_b] * weight;
+        result[i] = dsp::freq_to_pixel_value(interpolated_freq);
     }
     return result;
 }
