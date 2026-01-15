@@ -31,7 +31,7 @@ PYBIND11_MODULE(_core, m) {
 
     // 3. 核心类 Decoder 的封装
     py::class_<Decoder>(m, "Decoder")
-        .def(py::init<double>(), py::arg("sample_rate") = 11025.0)
+        .def(py::init<double>(), py::arg("sample_rate"))
 
         // 关键：将 process(const float*, size_t) 封装为接受 NumPy 数组的接口
         .def("process", [](Decoder &self, const py::array_t<float>& samples) {

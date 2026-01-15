@@ -3,9 +3,11 @@
 #include "sstv_types.h"
 #include "dsp_filters.h"
 #include "dsp_freq_estimator.h"
+#include "dsp_resampler.h"
 #include "sstv_vis_decoder.h"
 #include "sstv_pd120_demodulator.h"
 
+#include <utility>
 #include <vector>
 #include <functional>
 #include <memory>
@@ -16,7 +18,7 @@ namespace sstv {
 // The top-level SSTV Decoder class
 class Decoder {
 public:
-    explicit Decoder(double sample_rate = 11025.0);
+    explicit Decoder(double sample_rate);
     ~Decoder();
 
     // Core entry point: Push audio samples into the decoder
@@ -28,9 +30,9 @@ public:
     void reset();
 
     // Callbacks for UI or storage
-    void set_on_mode_detected_callback(ModeDetectedCallback cb) { m_on_mode_detected_cb = cb; }
-    void set_on_line_decoded_callback(LineDecodedCallback cb) { m_on_line_decoded_cb = cb; }
-    void set_on_image_complete_callback(ImageCompleteCallback cb) { m_on_image_complete_cb = cb; }
+    void set_on_mode_detected_callback(ModeDetectedCallback cb) { m_on_mode_detected_cb = std::move(cb); }
+    void set_on_line_decoded_callback(LineDecodedCallback cb) { m_on_line_decoded_cb = std::move(cb); }
+    void set_on_image_complete_callback(ImageCompleteCallback cb) { m_on_image_complete_cb = std::move(cb); }
 
 private:
     enum class State {
@@ -46,6 +48,7 @@ private:
     // DSP Components
     std::unique_ptr<dsp::FIRFilter> m_bandpass_filter;
     std::unique_ptr<dsp::FrequencyEstimator> m_freq_estimator;
+    std::unique_ptr<dsp::Resampler> m_resampler;
 
     // Protocol Components
     std::unique_ptr<VISDecoder> m_vis_decoder;

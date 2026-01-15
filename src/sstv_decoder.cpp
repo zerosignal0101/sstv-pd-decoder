@@ -13,6 +13,11 @@ Decoder::Decoder(double sample_rate)
       m_mode_is_pd120(false)
 {
     // Initialize DSP components
+    // Resampler
+    if (std::abs(sample_rate - INTERNAL_SAMPLE_RATE) > 1.0) {
+        m_resampler = std::make_unique<dsp::Resampler>(sample_rate, INTERNAL_SAMPLE_RATE);
+        // std::cout << "Resampler initialized: " << sample_rate << "Hz -> " << INTERNAL_SAMPLE_RATE << "Hz" << std::endl;
+    }
     // Bandpass for SSTV audio spectrum (e.g., 500 Hz to 2500 Hz)
     m_bandpass_filter = std::make_unique<dsp::FIRFilter>(FIR_TAP_COUNT, INTERNAL_SAMPLE_RATE, 500.0, 2500.0);
     m_freq_estimator = std::make_unique<dsp::FrequencyEstimator>(INTERNAL_SAMPLE_RATE);
@@ -40,26 +45,32 @@ void Decoder::reset() {
 
     m_bandpass_filter->clear();
     m_freq_estimator->clear();
+    if (m_resampler) m_resampler->reset();
+
     m_vis_decoder->reset();
     m_pd120_demodulator->reset();
     
-    std::cout << "SSTV Decoder reset. Searching for VIS..." << std::endl;
+    // std::cout << "SSTV Decoder reset. Searching for VIS..." << std::endl;
 }
 
 void Decoder::process(const float* samples, size_t count) {
-    // If the input sample rate doesn't match the internal, a resampler would be needed here.
-    // For this example, we assume `samples` are already at `INTERNAL_SAMPLE_RATE`.
-    if (m_sample_rate != INTERNAL_SAMPLE_RATE) {
-        std::cerr << "Warning: Input sample rate (" << m_sample_rate 
-                  << ") does not match internal rate (" << INTERNAL_SAMPLE_RATE << "). "
-                  << "Resampling is not implemented in this demo." << std::endl;
-        // In a real system, you'd resample the 'samples' block here.
+    const float* current_input = samples;
+    size_t current_count = count;
+    std::vector<float> resampled_storage;
+
+    // --- 第一步：重采样 (如果需要) ---
+    if (m_resampler) {
+        resampled_storage = m_resampler->process_block(samples, count);
+        current_input = resampled_storage.data();
+        current_count = resampled_storage.size();
     }
 
-    std::vector<float> filtered_samples(count);
-    m_bandpass_filter->process_block(samples, filtered_samples.data(), count);
+    if (current_count == 0) return;
 
-    std::vector<double> estimated_frequencies = m_freq_estimator->process_block(filtered_samples.data(), count);
+    std::vector<float> filtered_samples(current_count);
+    m_bandpass_filter->process_block(current_input, filtered_samples.data(), current_count);
+
+    std::vector<double> estimated_frequencies = m_freq_estimator->process_block(filtered_samples.data(), current_count);
 
     // // Debug freq output
     // for (double freq : estimated_frequencies) {

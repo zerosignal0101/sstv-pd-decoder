@@ -386,3 +386,6 @@ CMakeSettings.json
 # -------- CTags --------
 .tags
 .ctags
+
+# Python
+dist/*
