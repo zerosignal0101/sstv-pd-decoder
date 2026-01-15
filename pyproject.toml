@@ -1,0 +1,22 @@
+[build-system]
+requires = ["scikit-build-core", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "sstv_decoder"  # Python 中 import 的名字
+version = "0.1.0"
+description = "A SSTV PD120 Decoder"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "Your Name", email = "your@email.com"},
+]
+
+[tool.scikit-build]
+# 确保 CMake 能找到 pybind11
+cmake.version = ">=3.20"
+# 编译配置：Release 模式
+cmake.build-type = "Release"
+cmake.source-dir = "."
+# 关键：指定 Python 包的根目录
+wheel.packages = ["python/sstv_decoder"]
