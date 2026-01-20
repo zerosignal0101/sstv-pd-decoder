@@ -1,0 +1,75 @@
+name: Build Wheels
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    # 如果需要 Linux arm64，必须启动 Docker QEMU 模拟
+    # 只有 ubuntu 跑在 docker 中，其他平台原生运行
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # --- Windows x64 (Python 3.10, 3.11, 3.12) ---
+          - name: Windows x64
+            os: windows-latest
+            cibw_build: "cp310-win_amd64 cp311-win_amd64 cp312-win_amd64"
+
+          # --- macOS ARM64 (Only M1/M2/M3) ---
+          # 使用 macos-latest (当前是 macOS 14，基于 Apple Silicon)
+          - name: macOS ARM64
+            os: macos-latest
+            cibw_build: "cp310-macosx_arm64 cp311-macosx_arm64 cp312-macosx_arm64"
+            # 禁止构建 x86_64，防止误生产
+            cibw_archs: "arm64"
+
+          # --- Linux (x64 + arm64) ---
+          # 在一个任务里同时构建两种架构，或者分开。这里为了方便放在一个任务里。
+          # cibuildwheel 会自动使用 QEMU 模拟 aarch64 环境，速度会比原生慢，但不需要单独的 ARM 服务器。
+          - name: Linux (x64 & ARM64)
+            os: ubuntu-20.04
+            cibw_build: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp310-manylinux_aarch64 cp311-manylinux_aarch64 cp312-manylinux_aarch64"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      # Linux 下构建 arm64 需要 QEMU，最新版 cibuildwheel 会自动处理，
+      # 但 Ubuntu 20.04 runner 有时需要手动确认 setup
+      - name: Set up QEMU
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.18.0
+        env:
+          # 使用 matrix 中定义的 cibw_build 变量
+          CIBW_BUILD: "${{ matrix.cibw_build }}"
+          CIBW_ARCHS: "${{ matrix.cibw_archs }}"
+          CIBW_BUILD_VERBOSITY: 1
+          
+          # C++23 编译器配置 (MacOS 13+ 默认就是较新的 Clang，Linux/Windows 也是)
+          # 确保 Linux 下能编译 CMake (你的 CMakeLists.txt 用了 Git)
+          CIBW_BEFORE_ALL_LINUX: |
+            yum install -y git
+
+          # 可选：如果是 Linux arm64，由于是模拟环境，为了加速可以减少测试次数，
+          # 但这里是构建 wheel，所以不需要 CIBW_TEST_COMMAND
+
+      # 上传到 Release
+      - name: Upload Release Assets
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: wheelhouse/*.whl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -15,6 +15,9 @@ find_package(pybind11 REQUIRED)
 
 # --- 使用 FetchContent 获取 libsamplerate ---
 include(FetchContent)
+# 强制设置为 OFF，确保作为静态库链接，避免 wheel 安装缺少依赖
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE) 
+set(ENABLE_CPACK OFF CACHE BOOL "" FORCE) # 默认不打包
 FetchContent_Declare(
         libsamplerate
         GIT_REPOSITORY https://github.com/libsndfile/libsamplerate.git
