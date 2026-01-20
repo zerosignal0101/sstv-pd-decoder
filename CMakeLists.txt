@@ -1,6 +1,8 @@
 # 指定 CMake 最低版本
 cmake_minimum_required(VERSION 3.15) # 3.15 或更高版本对 C++20/23 支持更好
 
+# 解决旧项目兼容性问题，必须放在 project() 之前
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 # 项目名称
 project(SSTVDemodulator VERSION 0.1.0 LANGUAGES CXX)
 
@@ -21,8 +23,10 @@ set(ENABLE_CPACK OFF CACHE BOOL "" FORCE) # 默认不打包
 FetchContent_Declare(
         libsamplerate
         GIT_REPOSITORY https://github.com/libsndfile/libsamplerate.git
-        GIT_TAG        0.2.2 # 或者使用特定的 commit hash
+        GIT_TAG        0.2.2
 )
+set(LIBSAMPLERATE_EXAMPLES OFF CACHE BOOL "")
+set(LIBSAMPLERATE_INSTALL OFF CACHE BOOL "")
 FetchContent_MakeAvailable(libsamplerate)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
