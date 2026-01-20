@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <cstddef>
 #include <samplerate.h> // libsamplerate 头文件
 
 namespace sstv::dsp {

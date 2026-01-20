@@ -15,18 +15,19 @@ jobs:
         include:
           - name: Windows x64
             os: windows-latest
-            cibw_build: "cp310-win_amd64 cp311-win_amd64 cp312-win_amd64"
-            cibw_archs: "amd64" # 显式指定，防止为空
+            cibw_archs: "x86_64"
 
           - name: macOS ARM64
             os: macos-latest
-            cibw_build: "cp310-macosx_arm64 cp311-macosx_arm64 cp312-macosx_arm64"
             cibw_archs: "arm64"
 
-          - name: Linux (x64 & ARM64)
-            os: ubuntu-latest # 改用最新版以支持更现代的编译器
-            cibw_build: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp310-manylinux_aarch64 cp311-manylinux_aarch64 cp312-manylinux_aarch64"
-            cibw_archs: "x86_64 aarch64"
+          - name: Linux x86_64
+            os: ubuntu-latest
+            cibw_archs: "x86_64"
+
+          - name: Linux aarch64
+            os: ubuntu-latest
+            cibw_archs: "aarch64"
 
     steps:
       - name: Checkout code
@@ -34,30 +35,31 @@ jobs:
         with:
           fetch-depth: 0 
 
-      # Linux 下构建 arm64 需要 QEMU，最新版 cibuildwheel 会自动处理，
       - name: Set up QEMU
-        if: runner.os == 'Linux'
+        if: matrix.cibw_archs == 'aarch64'
         uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.18.0
         env:
-          CIBW_BUILD: "${{ matrix.cibw_build }}"
-          # 使用 || 'auto' 作为保底，防止由于 matrix 缺失导致的空字符串错误
-          CIBW_ARCHS: "${{ matrix.cibw_archs || 'auto' }}"
+          # 只编译 3.10 及以上版本
+          CIBW_SKIP: "cp36-* cp37-* cp38-* cp39-* pp* *-musllinux*"
+          CIBW_ARCHS: "${{ matrix.cibw_archs }}"
           CIBW_BUILD_VERBOSITY: 1
           
-          # 对于 C++23，Linux 需要较新的 manylinux 镜像（例如 manylinux_2_28 或 manylinux_2_34）
-          # 默认的 manylinux2014 (CentOS 7) 编译器太老
+          # 针对 C++23 的 Linux 镜像设置
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
 
-          CIBW_BEFORE_ALL_LINUX: |
-            dnf install -y git || yum install -y git
+          # 只有 Linux 需要安装 git
+          CIBW_BEFORE_ALL_LINUX: dnf install -y git || yum install -y git
 
-      # 上传到 Release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.name }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
       - name: Upload Release Assets
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
