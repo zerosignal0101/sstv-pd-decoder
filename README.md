@@ -4,6 +4,10 @@ A high-performance **Slow Scan Television (SSTV)** decoder written in **C++23** 
 
 This project focuses on decoding the **PD modes** (e.g., PD120, PD180, PD240).
 
+![Comparison between this module and YONIQ/MMSSTV](./docs/compare_yoniq_mmsstv_no_signal.png)
+
+![Comparison between this module and YONIQ/MMSSTV](./docs/compare_yoniq_mmsstv_2016.png)
+
 ## Features
 
 * **Decoding**:
