@@ -1,11 +1,11 @@
-#include "sstv_pd120_demodulator.h"
+#include "sstv_pd_demodulator.h"
 #include "dsp_freq_estimator.h"
 #include <algorithm>
 #include <iostream>
 
 namespace sstv {
 
-PD120Demodulator::PD120Demodulator(double sample_rate,
+PDDemodulator::PDDemodulator(double sample_rate,
                                  LineDecodedCallback on_line_decoded_cb,
                                  ImageCompleteCallback on_image_complete_cb)
     : m_sample_rate(sample_rate),
@@ -16,7 +16,17 @@ PD120Demodulator::PD120Demodulator(double sample_rate,
     reset();
 }
 
-void PD120Demodulator::reset() {
+void PDDemodulator::configure(const SSTVMode& mode, const PDTimings& timings) {
+    m_timings = timings;
+    m_width = mode.width;
+    m_height = mode.height;
+
+    m_segment_buffer.reserve(static_cast<size_t>(m_timings.segment_ms * m_samples_per_ms * 1.2));
+    m_y1_pixels.resize(m_width); m_y2_pixels.resize(m_width); m_cr_pixels.resize(m_width); m_cb_pixels.resize(m_width);
+}
+
+
+void PDDemodulator::reset() {
     m_current_segment = SegmentType::IDLE;
     m_segment_timer = 0;
     m_current_line_idx = 0;
@@ -28,15 +38,15 @@ void PD120Demodulator::reset() {
     m_cb_pixels.clear();
 }
 
-bool PD120Demodulator::process_frequency(double freq) {
+bool PDDemodulator::process_frequency(double freq) {
     double corrected_freq = freq - m_freq_offset;
 
     m_segment_timer += 1.0;
 
     // 预计算阈值，避免重复计算
-    const double sync_duration_samples = PD120ModeConfig::SYNC_DURATION_MS * m_samples_per_ms;
-    const double porch_duration_samples = PD120ModeConfig::PORCH_DURATION_MS * m_samples_per_ms;
-    const double segment_duration_samples = PD120ModeConfig::SEGMENT_DURATION_MS * m_samples_per_ms;
+    const double sync_duration_samples = m_timings.sync_ms * m_samples_per_ms;
+    const double porch_duration_samples = m_timings.porch_ms * m_samples_per_ms;
+    const double segment_duration_samples = m_timings.segment_ms * m_samples_per_ms;
 
     switch (m_current_segment) {
         case SegmentType::IDLE:
@@ -119,14 +129,14 @@ bool PD120Demodulator::process_frequency(double freq) {
             break;
     }
 
-    if (m_current_line_idx >= PD120ModeConfig::HEIGHT) {
+    if (m_current_line_idx >= m_height) {
         return true;
     }
     return false;
 }
 
-void PD120Demodulator::process_current_segment() {
-    std::vector<uint8_t> pixels = resample_segment(m_segment_buffer, PD120ModeConfig::WIDTH);
+void PDDemodulator::process_current_segment() {
+    std::vector<uint8_t> pixels = resample_segment(m_segment_buffer, m_width);
     switch (m_current_segment) {
         case SegmentType::Y1: m_y1_pixels = std::move(pixels); break;
         case SegmentType::RY: m_cr_pixels = std::move(pixels); break;
@@ -136,7 +146,7 @@ void PD120Demodulator::process_current_segment() {
     }
 }
 
-std::vector<uint8_t> PD120Demodulator::resample_segment(const std::vector<double>& buffer, int target_count) {
+std::vector<uint8_t> PDDemodulator::resample_segment(const std::vector<double>& buffer, int target_count) {
     if (buffer.empty()) return std::vector<uint8_t>(target_count, 0);
     std::vector<uint8_t> result(target_count);
     double src_size = static_cast<double>(buffer.size());
@@ -154,23 +164,23 @@ std::vector<uint8_t> PD120Demodulator::resample_segment(const std::vector<double
     return result;
 }
 
-void PD120Demodulator::finalize_line_group() {
+void PDDemodulator::finalize_line_group() {
     if (m_y1_pixels.empty() || m_y2_pixels.empty() || m_cr_pixels.empty() || m_cb_pixels.empty()) return;
 
-    if (m_current_line_idx < PD120ModeConfig::HEIGHT) {
-        std::vector<Pixel> line1(PD120ModeConfig::WIDTH);
-        for (int i = 0; i < PD120ModeConfig::WIDTH; ++i) line1[i] = ycbcr_to_rgb(m_y1_pixels[i], m_cb_pixels[i], m_cr_pixels[i]);
+    if (m_current_line_idx < m_height) {
+        std::vector<Pixel> line1(m_width);
+        for (int i = 0; i < m_width; ++i) line1[i] = ycbcr_to_rgb(m_y1_pixels[i], m_cb_pixels[i], m_cr_pixels[i]);
         m_on_line_decoded(m_current_line_idx++, line1);
     }
-    if (m_current_line_idx < PD120ModeConfig::HEIGHT) {
-        std::vector<Pixel> line2(PD120ModeConfig::WIDTH);
-        for (int i = 0; i < PD120ModeConfig::WIDTH; ++i) line2[i] = ycbcr_to_rgb(m_y2_pixels[i], m_cb_pixels[i], m_cr_pixels[i]);
+    if (m_current_line_idx < m_height) {
+        std::vector<Pixel> line2(m_width);
+        for (int i = 0; i < m_width; ++i) line2[i] = ycbcr_to_rgb(m_y2_pixels[i], m_cb_pixels[i], m_cr_pixels[i]);
         m_on_line_decoded(m_current_line_idx++, line2);
     }
-    if (m_current_line_idx >= PD120ModeConfig::HEIGHT) m_on_image_complete(PD120ModeConfig::WIDTH, PD120ModeConfig::HEIGHT);
+    if (m_current_line_idx >= m_height) m_on_image_complete(m_width, m_height);
 }
 
-Pixel PD120Demodulator::ycbcr_to_rgb(uint8_t Y, uint8_t Cb, uint8_t Cr) {
+Pixel PDDemodulator::ycbcr_to_rgb(uint8_t Y, uint8_t Cb, uint8_t Cr) {
     int y = Y - 16;
     int cb = Cb - 128;
     int cr = Cr - 128;

@@ -40,38 +40,54 @@ struct Pixel {
     uint8_t r, g, b;
 };
 
-// PD120 Specifics
-struct PD120ModeConfig {
-    static constexpr int VIS_CODE = 95; // 0x5F, which is 01011111 binary, LSB first: 11111010
-    static constexpr int WIDTH = 640;
-    static constexpr int HEIGHT = 496;
-    static constexpr double SYNC_DURATION_MS = 20.0;
-    static constexpr double PORCH_DURATION_MS = 2.08;
-    static constexpr double SEGMENT_DURATION_MS = 121.6; // Y1, R-Y, B-Y, Y2 segments
-
-    static constexpr double TOTAL_GROUP_DURATION_MS = 
-        SYNC_DURATION_MS + PORCH_DURATION_MS + (4 * SEGMENT_DURATION_MS); // 508.48 ms
-
-    // Total transmission time per image (approx)
-    static constexpr double TOTAL_IMAGE_DURATION_SECONDS = (TOTAL_GROUP_DURATION_MS * HEIGHT / 2) / 1000.0; // (508.48 * 248) / 1000 = 126.0424 seconds
+// 家族标识
+enum class SSTVFamily {
+    PD,
+    // ROBOT,
+    // MARTIN,
+    // SCOTTIE,
+    UNKNOWN
 };
 
-// Mode configuration for other SSTV modes (simplified for this example)
+// 暴露给上层（Main/UI）的结构体
 struct SSTVMode {
-    std::string name;
-    int vis_code;
-    int width;
-    int height;
-    // Add other mode-specific timings if needed
+    std::string name;    // "PD120", "PD90", "Martin 1"
+    int vis_code;        // 95, 99, 172...
+    int width;           // 640
+    int height;          // 496
+    double duration_s;   // 预计总耗时
+    SSTVFamily family; // 新增：标识属于哪个家族
 };
 
-// Map VIS code to mode configuration
-const std::map<int, SSTVMode> VIS_MODE_MAP = {
-    {95, {"PD120", 95, 640, 496}},
-    // Add other modes here (e.g., Martin 1, Robot 36)
-    // {0xac, {"Martin 1", 0xac, 320, 256}},
+// --- 全局 VIS 注册表 (VISDecoder 使用) ---
+// 包含所有已知的 SSTV 模式，不分家族
+static const std::map<int, SSTVMode> GLOBAL_VIS_MAP = {
+    // PD 系列
+    {95, {"PD120", 95, 640, 496, 126.0, SSTVFamily::PD}},
+    {93, {"PD50",  93, 320, 256, 50.0,  SSTVFamily::PD}},
+    {99, {"PD90",  99, 320, 256, 90.0,  SSTVFamily::PD}},
+    {98, {"PD160", 98, 512, 400, 161.0, SSTVFamily::PD}},
+    {96, {"PD180", 96, 640, 496, 187.0, SSTVFamily::PD}},
+    {97, {"PD240", 97, 640, 496, 248.0, SSTVFamily::PD}},
 };
 
+// PD 解调器内部使用的详细时序参数
+struct PDTimings {
+    double sync_ms;
+    double porch_ms;
+    double segment_ms;
+};
+
+// --- 全局 PD 模式表 ---
+// 数据参考自标准的 PD 模式时序表
+static const std::map<int, PDTimings> PD_TIMINGS_MAP = {
+    {95, {20.0, 2.08, 121.60}},
+    {93, {20.0, 2.08, 91.52}},
+    {99, {20.0, 2.08, 170.24}},
+    {98, {20.0, 2.08, 195.85}},
+    {96, {20.0, 2.08, 183.04}},
+    {97, {20.0, 2.08, 244.48}},
+};
 
 // Callbacks
 using ModeDetectedCallback = std::function<void(const SSTVMode& mode)>;

@@ -9,8 +9,7 @@ constexpr double INTERNAL_SAMPLE_RATE = 11025.0; // Target sample rate for inter
 Decoder::Decoder(double sample_rate)
     : m_state(State::SEARCHING_VIS),
       m_sample_timer(0.0),
-      m_sample_rate(sample_rate),
-      m_mode_is_pd120(false)
+      m_sample_rate(sample_rate)
 {
     // Initialize DSP components
     // Resampler
@@ -26,7 +25,7 @@ Decoder::Decoder(double sample_rate)
     m_vis_decoder = std::make_unique<VISDecoder>(INTERNAL_SAMPLE_RATE, 
         [this](const SSTVMode& mode){ handle_mode_detected(mode); });
     
-    m_pd120_demodulator = std::make_unique<PD120Demodulator>(INTERNAL_SAMPLE_RATE,
+    m_pd_demodulator = std::make_unique<PDDemodulator>(INTERNAL_SAMPLE_RATE,
         [this](int line_idx, const std::vector<Pixel>& pixels){ handle_line_decoded(line_idx, pixels); },
         [this](int width, int height){ handle_image_complete(width, height); });
 
@@ -40,7 +39,6 @@ Decoder::~Decoder() {
 
 void Decoder::reset() {
     m_state = State::SEARCHING_VIS;
-    m_mode_is_pd120 = false;
     m_current_mode = {}; // Clear current mode data
 
     m_bandpass_filter->clear();
@@ -48,7 +46,7 @@ void Decoder::reset() {
     if (m_resampler) m_resampler->reset();
 
     m_vis_decoder->reset();
-    m_pd120_demodulator->reset();
+    m_pd_demodulator->reset();
     
     // std::cout << "SSTV Decoder reset. Searching for VIS..." << std::endl;
 }
@@ -90,9 +88,18 @@ void Decoder::process(const float* samples, size_t count) {
                 break;
             }
             case State::DECODING_IMAGE_DATA: {
-                if (m_mode_is_pd120) {
-                    // 直接传递 double 类型的频率向量
-                    m_pd120_demodulator->process_frequency(freq);
+                switch (m_current_mode.family) {
+                    case SSTVFamily::PD: {
+                        m_pd_demodulator->process_frequency(freq);
+                        break;
+                    }
+                    case SSTVFamily::UNKNOWN:
+                    default: {
+                        std::cerr << "Unsupported family!" << std::endl;
+                        reset();
+                        break;
+                    }
+                    // Other families
                 }
                 // Add logic for other modes here if implemented
                 break;
@@ -113,23 +120,26 @@ void Decoder::process(const float* samples, size_t count) {
 // Internal callback handlers
 void Decoder::handle_mode_detected(const SSTVMode& mode) {
     m_current_mode = mode;
-    m_mode_is_pd120 = (mode.vis_code == PD120ModeConfig::VIS_CODE);
-    
+
     if (m_on_mode_detected_cb) {
         m_on_mode_detected_cb(mode);
     }
     
-    if (m_mode_is_pd120) {
-        // // Debug info
-        // std::cout << "Mode detected: " << mode.name << ". Starting PD120 demodulation." << std::endl;
-        m_state = State::DECODING_IMAGE_DATA;
-        m_pd120_demodulator->reset(); // Ensure PD120 demodulator is ready
-    } else {
-        // // Debug info
-        // std::cout << "Mode detected: " << mode.name << ". Not PD120. Resetting." << std::endl;
-        // For other modes, we'd transition to their specific demodulators,
-        // but for this example, we just reset if it's not PD120.
-        reset(); 
+    switch (m_current_mode.family) {
+        case SSTVFamily::PD: {
+            // 只在 PD 分支里去查私有的 PD_TIMINGS_MAP
+            auto it = PD_TIMINGS_MAP.find(m_current_mode.vis_code);
+            if (it != PD_TIMINGS_MAP.end()) {
+                m_pd_demodulator->configure(m_current_mode, it->second);
+                m_state = State::DECODING_IMAGE_DATA;
+            }
+            break;
+        }
+        case SSTVFamily::UNKNOWN:
+        default:
+            std::cerr << "Unsupported family!" << std::endl;
+            reset();
+            break;
     }
 }
 

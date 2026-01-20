@@ -6,9 +6,9 @@ import collections.abc
 import numpy
 import numpy.typing
 import typing
-__all__: list[str] = ['Decoder', 'Pixel', 'SSTVMode']
+__all__: list[str] = ['Decoder', 'Pixel', 'SSTVFamily', 'SSTVMode']
 class Decoder:
-    def __init__(self, sample_rate: typing.SupportsFloat = 11025.0) -> None:
+    def __init__(self, sample_rate: typing.SupportsFloat) -> None:
         ...
     def process(self, samples: typing.Annotated[numpy.typing.ArrayLike, numpy.float32]) -> None:
         """
@@ -45,7 +45,50 @@ class Pixel:
     @r.setter
     def r(self, arg0: typing.SupportsInt) -> None:
         ...
+class SSTVFamily:
+    """
+    Members:
+    
+      PD
+    
+      UNKNOWN
+    """
+    PD: typing.ClassVar[SSTVFamily]  # value = <SSTVFamily.PD: 0>
+    UNKNOWN: typing.ClassVar[SSTVFamily]  # value = <SSTVFamily.UNKNOWN: 1>
+    __members__: typing.ClassVar[dict[str, SSTVFamily]]  # value = {'PD': <SSTVFamily.PD: 0>, 'UNKNOWN': <SSTVFamily.UNKNOWN: 1>}
+    def __eq__(self, other: typing.Any) -> bool:
+        ...
+    def __getstate__(self) -> int:
+        ...
+    def __hash__(self) -> int:
+        ...
+    def __index__(self) -> int:
+        ...
+    def __init__(self, value: typing.SupportsInt) -> None:
+        ...
+    def __int__(self) -> int:
+        ...
+    def __ne__(self, other: typing.Any) -> bool:
+        ...
+    def __repr__(self) -> str:
+        ...
+    def __setstate__(self, state: typing.SupportsInt) -> None:
+        ...
+    def __str__(self) -> str:
+        ...
+    @property
+    def name(self) -> str:
+        ...
+    @property
+    def value(self) -> int:
+        ...
 class SSTVMode:
+    @property
+    def duration_s(self) -> float:
+        ...
+    @property
+    def family(self) -> SSTVFamily:
+        ...
     @property
     def height(self) -> int:
         ...

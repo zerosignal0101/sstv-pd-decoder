@@ -171,13 +171,15 @@ bool VISDecoder::process_frequency(const double& freq) {
         case State::STOP_BIT:
             if (is_freq_near(freq, VIS_START_STOP_FREQ)) {
                 if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
-                    auto it = VIS_MODE_MAP.find(m_decoded_vis_bits);
-                    if (it != VIS_MODE_MAP.end()) {
+                    auto it = GLOBAL_VIS_MAP.find(m_decoded_vis_bits);
+                    if (it != GLOBAL_VIS_MAP.end()) {
                         m_on_mode_detected(it->second);
                         m_state = State::COMPLETE;
                         return true;
                     } else {
-                        reset();
+                        m_on_mode_detected(SSTVMode("Unknown", m_decoded_vis_bits, 0, 0, 0, SSTVFamily::UNKNOWN));
+                        m_state = State::COMPLETE;
+                        return true;
                     }
                 }
             } else {

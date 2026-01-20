@@ -1,4 +1,4 @@
-// include/sstv_pd120_demodulator.h
+// include/sstv_pd_demodulator.h
 #pragma once
 
 #include "sstv_types.h"
@@ -8,7 +8,7 @@
 
 namespace sstv {
 
-class PD120Demodulator {
+class PDDemodulator {
 public:
     /**
      * @brief 构造函数
@@ -16,9 +16,16 @@ public:
      * @param on_line_decoded_cb 当一行像素解码完成时的回调
      * @param on_image_complete_cb 当整张图像处理完成时的回调
      */
-    PD120Demodulator(double sample_rate,
+    PDDemodulator(double sample_rate,
                      LineDecodedCallback on_line_decoded_cb,
                      ImageCompleteCallback on_image_complete_cb);
+
+    /**
+     * @brief 处理从频率估计器得到的频率流
+     * @param mode 公共模式信息
+     * @param timings 定时信息
+     */
+    void configure(const SSTVMode& mode, const PDTimings& timings);
 
     /**
      * @brief 处理从频率估计器得到的频率流
@@ -43,6 +50,10 @@ private:
         Y2          // 第 N+1 行亮度 (121.6ms)
     };
 
+    PDTimings m_timings;
+    int m_width = 0;
+    int m_height = 0;
+
     SegmentType m_current_segment;
     double m_sample_rate;
     double m_samples_per_ms;
@@ -56,10 +67,10 @@ private:
     double m_freq_offset;           // 当前检测到的频偏 (Hz)
 
     // 原始频率缓冲区：存储当前段内的所有频率样本
-    // 待一段结束时，再通过重采样算法提取出 640 个像素点
+    // 待一段结束时，再通过重采样算法提取出像素点
     std::vector<double> m_segment_buffer;
 
-    // 像素缓冲区：存储重采样后的 640 个像素分量
+    // 像素缓冲区：存储重采样后的像素分量
     std::vector<uint8_t> m_y1_pixels;
     std::vector<uint8_t> m_y2_pixels;
     std::vector<uint8_t> m_cr_pixels;

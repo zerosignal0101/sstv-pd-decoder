@@ -5,7 +5,7 @@
 #include "dsp_freq_estimator.h"
 #include "dsp_resampler.h"
 #include "sstv_vis_decoder.h"
-#include "sstv_pd120_demodulator.h"
+#include "sstv_pd_demodulator.h"
 
 #include <utility>
 #include <vector>
@@ -52,11 +52,10 @@ private:
 
     // Protocol Components
     std::unique_ptr<VISDecoder> m_vis_decoder;
-    std::unique_ptr<PD120Demodulator> m_pd120_demodulator;
+    std::unique_ptr<PDDemodulator> m_pd_demodulator;
 
     // Current Mode detected by VIS
     SSTVMode m_current_mode;
-    bool m_mode_is_pd120;
 
     // Callback handlers
     ModeDetectedCallback m_on_mode_detected_cb;

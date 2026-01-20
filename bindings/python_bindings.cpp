@@ -23,11 +23,19 @@ PYBIND11_MODULE(_core, m) {
         });
 
     // 2. 绑定结构体 SSTVMode
+    py::enum_<SSTVFamily>(m, "SSTVFamily")
+        .value("PD", SSTVFamily::PD)
+        // .value("ROBOT", SSTVFamily::ROBOT) // 如果以后启用了，取消注释即可
+        // .value("MARTIN", SSTVFamily::MARTIN)
+        // .value("SCOTTIE", SSTVFamily::SCOTTIE)
+        .value("UNKNOWN", SSTVFamily::UNKNOWN);
     py::class_<SSTVMode>(m, "SSTVMode")
         .def_readonly("name", &SSTVMode::name)
         .def_readonly("vis_code", &SSTVMode::vis_code)
         .def_readonly("width", &SSTVMode::width)
-        .def_readonly("height", &SSTVMode::height);
+        .def_readonly("height", &SSTVMode::height)
+        .def_readonly("duration_s", &SSTVMode::duration_s)
+        .def_readonly("family", &SSTVMode::family);
 
     // 3. 核心类 Decoder 的封装
     py::class_<Decoder>(m, "Decoder")
