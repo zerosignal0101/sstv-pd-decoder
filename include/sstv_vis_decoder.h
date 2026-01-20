@@ -42,6 +42,11 @@ namespace sstv {
         int    m_error_count;           // 连续频率错误计数，用于鲁棒性
         std::deque<double> m_median_buffer;
 
+        // AFC
+        double m_afc_offset;           // 计算出的频偏 (实际频率 - 理论频率)
+        double m_afc_accumulator;      // 用于计算平均值的累加器
+        int    m_afc_sample_count;     // 累加样本数
+
         // 位解码辅助
         int    m_decoded_vis_bits;
         int    m_bit_count;

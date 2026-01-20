@@ -28,6 +28,10 @@ void VISDecoder::reset() {
     m_bit_count = 0;
     m_bit_freq_accumulator = 0;
     m_bit_sample_count = 0;
+    // AFC 重置
+    m_afc_offset = 0.0;
+    m_afc_accumulator = 0.0;
+    m_afc_sample_count = 0;
 }
 
 void VISDecoder::transition_to(State new_state) {
@@ -39,7 +43,7 @@ void VISDecoder::transition_to(State new_state) {
 }
 
 bool VISDecoder::is_freq_near(double freq, double target, double tolerance) {
-    return std::abs(freq - target) < tolerance;
+    return std::abs((freq - m_afc_offset) - target) < tolerance;
 }
 
 bool VISDecoder::process_frequency(const double& raw_freq) {
@@ -57,7 +61,7 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
     switch (m_state) {
         case State::IDLE:
             // 寻找第一个前导音 (1900Hz)
-            if (is_freq_near(freq, DEFAULT_PREAMBLE_TONES[0].frequency)) {
+            if (is_freq_near(freq, DEFAULT_PREAMBLE_TONES[0].frequency, 80.0)) {
                 if (m_state_timer_samples >= ((DEFAULT_PREAMBLE_TONES[0].duration_ms - 5.0) * m_samples_per_ms)) {
                     m_preamble_step = 1; // 已经完成第0个音
                     transition_to(State::PREAMBLE);
@@ -69,7 +73,7 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
 
         case State::PREAMBLE: {
             const auto& target_tone = DEFAULT_PREAMBLE_TONES[m_preamble_step];
-            if (is_freq_near(freq, target_tone.frequency)) {
+            if (is_freq_near(freq, target_tone.frequency, 80.0)) {
                 if (m_state_timer_samples >= (target_tone.duration_ms * m_samples_per_ms)) {
                     m_preamble_step++;
                     // 进入下一个前缀检测，误差归零，计数器归零
@@ -89,8 +93,20 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
         }
 
         case State::LEADER_BURST_1:
-            if (is_freq_near(freq, VIS_LEADER_BURST_FREQ)) {
+            if (is_freq_near(freq, VIS_LEADER_BURST_FREQ, 100.0)) {
+                // 建议跳过前 50ms 的不稳定期
+                if (m_state_timer_samples > (50.0 * m_samples_per_ms)) {
+                    m_afc_accumulator += freq;
+                    m_afc_sample_count++;
+                }
                 if (m_state_timer_samples >= (VIS_LEADER_BURST_DURATION_MS * m_samples_per_ms)) {
+                    // 计算偏移量：实际平均值 - 理论 1900
+                    if (m_afc_sample_count > 0) {
+                        m_afc_offset = (m_afc_accumulator / m_afc_sample_count) - VIS_LEADER_BURST_FREQ;
+                        // 限制 AFC 范围，防止误校准到离谱的频率 (例如 +/- 150Hz)
+                        m_afc_offset = std::clamp(m_afc_offset, -150.0, 150.0);
+                        // std::cout << "AFC Offset Calculated: " << m_afc_offset << " Hz" << std::endl;
+                    }
                     transition_to(State::BREAK_1200);
                 }
             } else {
