@@ -15,7 +15,7 @@ jobs:
         include:
           - name: Windows x64
             os: windows-latest
-            cibw_archs: "x86_64"
+            cibw_archs: "AMD64"
 
           - name: macOS ARM64
             os: macos-latest

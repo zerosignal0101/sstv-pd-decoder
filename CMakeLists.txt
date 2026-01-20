@@ -17,6 +17,8 @@ find_package(pybind11 REQUIRED)
 
 # --- 使用 FetchContent 获取 libsamplerate ---
 include(FetchContent)
+# 强制所有目标生成位置无关代码 (fPIC)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # 强制设置为 OFF，确保作为静态库链接，避免 wheel 安装缺少依赖
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE) 
 set(ENABLE_CPACK OFF CACHE BOOL "" FORCE) # 默认不打包
@@ -34,20 +36,19 @@ file(GLOB SOURCES "src/*.cpp")
 
 pybind11_add_module(_core ${SOURCES} bindings/python_bindings.cpp)
 
-add_executable(sstv_demod 
-    ${SOURCES}
-)
+if(NOT SKBUILD)
+    add_executable(sstv_demod ${SOURCES})
+    # 链接 libsamplerate
+    target_link_libraries(sstv_demod PRIVATE SampleRate::samplerate)
+    set_target_properties(sstv_demod PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    )
+endif()
 
 # 链接 libsamplerate
-target_link_libraries(sstv_demod PRIVATE SampleRate::samplerate)
 target_link_libraries(_core PRIVATE SampleRate::samplerate)
-
-# 可选：设置输出目录
-set_target_properties(sstv_demod PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-)
 
 # 匹配在 pybind11_add_module 中定义的名字
 install(TARGETS _core LIBRARY DESTINATION sstv_decoder)
