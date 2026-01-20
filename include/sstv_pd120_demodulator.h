@@ -53,6 +53,7 @@ private:
     // 状态追踪
     double m_segment_timer;         // 当前段已持续的采样数
     int    m_current_line_idx;      // 当前处理到的行数 (0 - 495)
+    double m_freq_offset;           // 当前检测到的频偏 (Hz)
 
     // 原始频率缓冲区：存储当前段内的所有频率样本
     // 待一段结束时，再通过重采样算法提取出 640 个像素点
@@ -74,6 +75,7 @@ private:
 
     // 容错常量
     static constexpr double FREQ_TOLERANCE = 60.0;
+    static constexpr double AFC_ALPHA = 0.1;
 };
 
 } // namespace sstv

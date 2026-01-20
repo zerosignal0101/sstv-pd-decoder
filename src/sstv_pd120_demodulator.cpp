@@ -20,6 +20,7 @@ void PD120Demodulator::reset() {
     m_current_segment = SegmentType::IDLE;
     m_segment_timer = 0;
     m_current_line_idx = 0;
+    m_freq_offset = 0.0;
     m_segment_buffer.clear();
     m_y1_pixels.clear();
     m_y2_pixels.clear();
@@ -28,6 +29,8 @@ void PD120Demodulator::reset() {
 }
 
 bool PD120Demodulator::process_frequency(double freq) {
+    double corrected_freq = freq - m_freq_offset;
+
     m_segment_timer += 1.0;
 
     // 预计算阈值，避免重复计算
@@ -45,14 +48,28 @@ bool PD120Demodulator::process_frequency(double freq) {
             break;
 
         case SegmentType::SYNC:
-            // 寻找下降沿：如果之前在 1200 附近，现在更接近 1500
-            if (m_segment_timer > (10.0 * m_samples_per_ms)) { // 至少持续了 10ms
-                if (std::abs(freq - BLACK_FREQ) < std::abs(freq - SYNC_FREQ)) {
+            // 在同步脉冲的中间段（例如 5ms 到 15ms 之间）进行测量，避开边缘跳变
+            if (m_segment_timer > (5.0 * m_samples_per_ms) &&
+                m_segment_timer < (15.0 * m_samples_per_ms)) {
+
+                double measured_offset = freq - SYNC_FREQ;
+
+                // 使用 IIR 滤波器平滑 offset
+                // 新偏移 = 10% 当前测量值 + 90% 历史记录
+                m_freq_offset = (AFC_ALPHA * measured_offset) + ((1.0 - AFC_ALPHA) * m_freq_offset);
+            }
+
+            // 探测 1200 -> 1500 的跳变沿作为 PORCH 的起始（硬同步）
+            if (m_segment_timer > (10.0 * m_samples_per_ms)) {
+                // 如果修正后的频率更接近黑色 (1500)，说明同步结束了
+                if (std::abs(corrected_freq - BLACK_FREQ) < std::abs(corrected_freq - SYNC_FREQ)) {
                     m_current_segment = SegmentType::PORCH;
-                    m_segment_timer = 0; // 这里的 0 点比单纯靠时间计时准确得多
+                    m_segment_timer = 0;
                     break;
                 }
             }
+
+            // 超时退出
             if (m_segment_timer >= sync_duration_samples) {
                 m_current_segment = SegmentType::PORCH;
                 m_segment_timer = 0;
@@ -73,7 +90,7 @@ bool PD120Demodulator::process_frequency(double freq) {
         case SegmentType::RY:
         case SegmentType::BY:
         case SegmentType::Y2:
-            m_segment_buffer.push_back(freq);
+            m_segment_buffer.push_back(corrected_freq);
 
             if (m_segment_timer >= segment_duration_samples) {
                 process_current_segment();

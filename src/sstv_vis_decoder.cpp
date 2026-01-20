@@ -119,25 +119,27 @@ bool VISDecoder::process_frequency(const double& freq) {
             break;
 
         case State::DATA_BITS:
+            // 累加整个位周期内的频率
             m_bit_freq_accumulator += freq;
             m_bit_sample_count++;
 
             if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
                 double avg_f = m_bit_freq_accumulator / m_bit_sample_count;
-                int bit = -1;
-                if (is_freq_near(avg_f, VIS_LOGIC_1_FREQ, 80.0)) bit = 1;
-                else if (is_freq_near(avg_f, VIS_LOGIC_0_FREQ, 80.0)) bit = 0;
 
-                if (bit != -1) {
-                    m_decoded_vis_bits |= (bit << m_bit_count);
-                    m_bit_count++;
-                    m_state_timer_samples = 0; // 重置计时器以处理下一位
-                    m_bit_freq_accumulator = 0;
-                    m_bit_sample_count = 0;
-                    if (m_bit_count >= 7) transition_to(State::PARITY_BIT);
-                } else {
-                    reset(); // 位频率无法识别
-                }
+                // --- 核心修改：动态判定门限 ---
+                // 逻辑 1 是 1100，逻辑 0 是 1300，中间点是 1200
+                // 我们不看绝对频率，看它在 1200 的哪一边
+                int bit = (avg_f < 1200.0) ? 1 : 0;
+
+                m_decoded_vis_bits |= (bit << m_bit_count);
+                m_bit_count++;
+
+                // 重置位累加器
+                m_state_timer_samples = 0;
+                m_bit_freq_accumulator = 0;
+                m_bit_sample_count = 0;
+
+                if (m_bit_count >= 7) transition_to(State::PARITY_BIT);
             }
             break;
 
