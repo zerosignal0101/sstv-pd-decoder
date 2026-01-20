@@ -129,15 +129,7 @@ double FrequencyEstimator::process_sample(float input_sample) {
     // 8. 转换为频率 (Hz)
     // f = (delta_phase * Fs) / (2 * PI)
     double raw_freq = (delta_phase * m_sample_rate) / (2.0 * std::numbers::pi);
-
-    // --- 鉴频后平滑 ---
-    // SSTV 像素时钟很慢，采样率 11025 下，我们不需要 11kHz 的频率响应
-    // 使用一个简单的低通滤波器滤除鉴频产生的高频噪声
-    static double filtered_freq = 0.0;
-    const double lpf_beta = 0.25; // 0.1 ~ 0.3 之间，越小越稳但图像越糊
-    filtered_freq = (lpf_beta * raw_freq) + (1.0 - lpf_beta) * filtered_freq;
-
-    m_last_freq = filtered_freq;
+    m_last_freq = raw_freq;
 
     return m_last_freq;
 }

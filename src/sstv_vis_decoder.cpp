@@ -10,6 +10,15 @@ VISDecoder::VISDecoder(double sample_rate, ModeDetectedCallback on_mode_detected
     reset();
 }
 
+double VISDecoder::get_smoothed_freq(double raw_freq) {
+    m_median_buffer.push_back(raw_freq);
+    if (m_median_buffer.size() > MEDIAN_WINDOW) m_median_buffer.pop_front();
+
+    std::vector<double> sorted = {m_median_buffer.begin(), m_median_buffer.end()};
+    std::sort(sorted.begin(), sorted.end());
+    return sorted[sorted.size() / 2];
+}
+
 void VISDecoder::reset() {
     m_state = State::IDLE;
     m_state_timer_samples = 0;
@@ -33,7 +42,10 @@ bool VISDecoder::is_freq_near(double freq, double target, double tolerance) {
     return std::abs(freq - target) < tolerance;
 }
 
-bool VISDecoder::process_frequency(const double& freq) {
+bool VISDecoder::process_frequency(const double& raw_freq) {
+    // 中值滤波预处理
+    double freq = get_smoothed_freq(raw_freq);
+
     m_state_timer_samples += 1.0;
 
     // 鲁棒性检查：如果频率完全丢失（0），快速重置

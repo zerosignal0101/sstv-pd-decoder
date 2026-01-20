@@ -4,6 +4,8 @@
 #include <vector>
 #include <memory>
 #include <cmath>
+#include <deque>
+#include <algorithm>
 
 namespace sstv {
 
@@ -38,6 +40,7 @@ namespace sstv {
         double m_state_timer_samples;   // 当前状态已持续的采样数
         size_t m_preamble_step;         // 当前处于第几个前导音
         int    m_error_count;           // 连续频率错误计数，用于鲁棒性
+        std::deque<double> m_median_buffer;
 
         // 位解码辅助
         int    m_decoded_vis_bits;
@@ -49,9 +52,11 @@ namespace sstv {
         void transition_to(State new_state);
         bool is_freq_near(double freq, double target, double tolerance = 60.0);
         void handle_bit_decoding(double avg_freq);
+        double get_smoothed_freq(double raw_freq);
 
         // 常量：允许连续错误的时间（毫秒），超过此时间则重置
         const double MAX_ERROR_TIME_MS = 15.0;
+        const size_t MEDIAN_WINDOW = 9; // 奇数
     };
 
 } // namespace sstv

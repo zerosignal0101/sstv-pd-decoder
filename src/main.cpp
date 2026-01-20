@@ -65,7 +65,7 @@ int main() {
 
     // --- 模拟传输 (读取音频文件) ---
     std::vector<float> full_audio_signal;
-    const char* filename = R"(D:\C-Codes\Radio-HAM\sstv-toolkit\pd120_44100Hz.raw)";
+    const char* filename = R"(D:\C-Codes\Radio-HAM\sstv-toolkit\pd120_44100Hz_script.raw)";
 
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
