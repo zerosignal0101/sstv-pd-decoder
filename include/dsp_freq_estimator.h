@@ -1,9 +1,12 @@
 #pragma once
 
 #include "sstv_types.h"
+#include "dsp_agc.h"
 #include <vector>
 #include <cmath>
 #include <numeric>
+#include <memory>
+#include <iostream>
 #include <algorithm>
 
 namespace sstv::dsp {
@@ -23,6 +26,9 @@ namespace sstv::dsp {
 
         double m_sample_rate;
         double m_last_freq;
+
+        // AGC
+        std::unique_ptr<AGC> m_agc;
 
         // 滤波器状态
         std::vector<float> m_buffer;

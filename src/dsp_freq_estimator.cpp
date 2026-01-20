@@ -17,6 +17,8 @@ FrequencyEstimator::FrequencyEstimator(double sample_rate)
       m_prev_q(0.0f),
       m_samples_processed(0)
 {
+    m_agc = std::make_unique<AGC>();
+
     m_buffer_size = DEFAULT_HILBERT_TAPS;
     m_group_delay = m_buffer_size / 2;
 
@@ -53,9 +55,27 @@ void FrequencyEstimator::generate_hilbert_coeffs() {
     }
 }
 
+// IIR DC blocker
+float dc_blocker(float input) {
+    static float prev_input = 0.0f;
+    static float prev_output = 0.0f;
+    const float alpha = 0.995f; // 截止频率越小，alpha 越接近 1
+
+    float output = input - prev_input + alpha * prev_output;
+    prev_input = input;
+    prev_output = output;
+    return output;
+}
+
 double FrequencyEstimator::process_sample(float input_sample) {
+    // DC Blocker (必须在 AGC 之前，否则 DC 会被放大)
+    float sample_no_dc = dc_blocker(input_sample);
+
+    // AGC (确保信号进入希尔伯特变换时幅度适中)
+    float sample_normalized = m_agc->process(sample_no_dc);
+
     // 1. 更新循环缓冲区
-    m_buffer[m_write_pos] = input_sample;
+    m_buffer[m_write_pos] = sample_normalized;
 
     // 2. 卷积计算 Q 路 (正交分量)
     float q = 0.0f;
