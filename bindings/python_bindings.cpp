@@ -10,7 +10,7 @@ namespace py = pybind11;
 using namespace sstv;
 
 PYBIND11_MODULE(_core, m) {
-    m.doc() = "SSTV PD120 Decoder Python Bindings (C++23)";
+    m.doc() = "SSTV Decoder Python Bindings (C++23)";
 
     // 1. 绑定结构体 Pixel
     py::class_<Pixel>(m, "Pixel")

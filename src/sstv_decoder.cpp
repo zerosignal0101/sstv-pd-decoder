@@ -106,11 +106,12 @@ void Decoder::process(const float* samples, size_t count) {
             }
             case State::IMAGE_COMPLETE: {
                 // Wait for a reset or a new transmission to start
+                reset();
                 break;
             }
             case State::DECODING_IMAGE_HEADER: {
-                // Not implemented for PD120, but other modes might have post-VIS headers
-                m_state = State::DECODING_IMAGE_DATA; // Fall through for PD120
+                // Not implemented for PD family, but other modes might have post-VIS headers
+                m_state = State::DECODING_IMAGE_DATA; // Fall through for PD family
                 break;
             }
         }
@@ -158,7 +159,7 @@ void Decoder::handle_image_complete(int width, int height) {
         m_on_image_complete_cb(width, height);
     }
     m_state = State::IMAGE_COMPLETE;
-    // The PD120Demodulator will reset itself. VISDecoder is already complete.
+    // The PDDemodulator will reset itself. VISDecoder is already complete.
 }
 
 } // namespace sstv
