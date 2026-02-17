@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "sstv_decoder"  # Python 中 import 的名字
-version = "0.1.0"
+version = "0.1.2"
 description = "A SSTV PD120 Decoder"
 readme = "README.md"
 requires-python = ">=3.8"

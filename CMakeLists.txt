@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.15) # 3.15 或更高版本对 C++20/23 支持�
 # 解决旧项目兼容性问题，必须放在 project() 之前
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 # 项目名称
-project(SSTVDemodulator VERSION 0.1.0 LANGUAGES CXX)
+project(SSTVDemodulator VERSION 0.1.2 LANGUAGES CXX)
 
 # 设置 C++ 标准为 C++23
 set(CMAKE_CXX_STANDARD 23)
@@ -15,21 +15,16 @@ set(CMAKE_CXX_EXTENSIONS OFF) # 禁用 GNU 扩展
 set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 REQUIRED)
 
-# --- 使用 FetchContent 获取 libsamplerate ---
-include(FetchContent)
+# --- libsamplerate ---
 # 强制所有目标生成位置无关代码 (fPIC)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # 强制设置为 OFF，确保作为静态库链接，避免 wheel 安装缺少依赖
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE) 
 set(ENABLE_CPACK OFF CACHE BOOL "" FORCE) # 默认不打包
-FetchContent_Declare(
-        libsamplerate
-        GIT_REPOSITORY https://github.com/libsndfile/libsamplerate.git
-        GIT_TAG        0.2.2
-)
 set(LIBSAMPLERATE_EXAMPLES OFF CACHE BOOL "")
 set(LIBSAMPLERATE_INSTALL OFF CACHE BOOL "")
-FetchContent_MakeAvailable(libsamplerate)
+# 添加 libsamplerate 子目录
+add_subdirectory(extern/libsamplerate)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 file(GLOB SOURCES "src/*.cpp")
