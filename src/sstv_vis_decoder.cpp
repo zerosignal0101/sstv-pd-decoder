@@ -65,7 +65,7 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
     switch (m_state) {
         case State::IDLE:
             // 寻找第一个前导音 (1900Hz)
-            if (is_freq_near(corrected_freq, DEFAULT_PREAMBLE_TONES[0].frequency, 500.0)) {
+            if (is_freq_near(corrected_freq, DEFAULT_PREAMBLE_TONES[0].frequency, 600.0)) {
                 if (m_state_timer_samples >= ((DEFAULT_PREAMBLE_TONES[0].duration_ms - 5.0) * m_samples_per_ms)) {
                     m_preamble_step = 1; // 已经完成第0个音
                     m_afc_offset = freq - DEFAULT_PREAMBLE_TONES[0].frequency;

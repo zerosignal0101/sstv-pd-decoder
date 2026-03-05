@@ -72,7 +72,6 @@ private:
     double m_segment_timer;         // 当前段已持续的采样数
     int    m_current_line_idx;      // 当前处理到的行数 (0 - 495)
     double m_afc_offset;           // 当前检测到的频偏 (Hz)
-    std::deque<double> m_median_buffer;
 
     // 原始频率缓冲区：存储当前段内的所有频率样本
     // 待一段结束时，再通过重采样算法提取出像素点
@@ -87,7 +86,6 @@ private:
     // 内部核心逻辑
     void process_current_segment();
     void finalize_line_group();
-    double get_smoothed_freq(double raw_freq);
 
     // 工具函数
     std::vector<uint8_t> resample_segment(const std::vector<double>& buffer, int target_count);
@@ -95,7 +93,6 @@ private:
 
     // 容错常量
     static constexpr double FREQ_TOLERANCE = 60.0;
-    static constexpr size_t MEDIAN_WINDOW = 9; // 奇数
     static constexpr double AFC_ALPHA = 0.1;
 };
 

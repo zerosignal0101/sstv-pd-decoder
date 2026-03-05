@@ -30,8 +30,6 @@ void PDDemodulator::reset() {
     m_current_segment = SegmentType::IDLE;
     m_segment_timer = 0;
     m_current_line_idx = 0;
-    // 中值滤波重置
-    m_median_buffer.clear();
     // AFC 重置
     m_afc_offset = 0.0;
     m_segment_buffer.clear();
@@ -45,15 +43,6 @@ void PDDemodulator::set_afc_offset(double afc_offset) {
     // 从 VIS 解码器继承 AFC 偏移，用于数据段解调
     m_afc_offset = afc_offset;
     // std::cout << "PD Demodulator: Initial freq offset set to " << freq_offset << " Hz" << std::endl;
-}
-
-double PDDemodulator::get_smoothed_freq(double raw_freq) {
-    m_median_buffer.push_back(raw_freq);
-    if (m_median_buffer.size() > MEDIAN_WINDOW) m_median_buffer.pop_front();
-
-    std::vector<double> sorted = {m_median_buffer.begin(), m_median_buffer.end()};
-    std::sort(sorted.begin(), sorted.end());
-    return sorted[sorted.size() / 2];
 }
 
 bool PDDemodulator::process_frequency(double freq) {
@@ -82,19 +71,15 @@ bool PDDemodulator::process_frequency(double freq) {
                 // std::cout << "Transit to SYNC: " << corrected_freq << " Hz" << std::endl;
                 m_current_segment = SegmentType::SYNC;
                 m_segment_timer = 0;
-                // 重置中值滤波
-                m_median_buffer.clear();
             }
             break;
         }
 
         case SegmentType::SYNC: {
-            // 在同步脉冲的中间段（例如 5ms 到 15ms 之间）进行测量，避开边缘跳变
-            double smoothed_freq = get_smoothed_freq(freq);  // 使用原始 freq 计算 AFC 偏置
             if (m_segment_timer > (5.0 * m_samples_per_ms) &&
                 m_segment_timer < (15.0 * m_samples_per_ms)) {
 
-                double measured_offset = smoothed_freq - SYNC_FREQ;
+                double measured_offset = freq - SYNC_FREQ;
 
                 // 使用 IIR 滤波器平滑 offset
                 // 新偏移 = 10% 当前测量值 + 90% 历史记录
