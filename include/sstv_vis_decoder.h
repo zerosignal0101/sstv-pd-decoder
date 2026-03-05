@@ -17,6 +17,9 @@ namespace sstv {
         bool process_frequency(const double& freq);
         void reset();
 
+        // 获取当前 AFC 偏移量
+        [[nodiscard]] double get_afc_offset() const { return m_afc_offset; }
+
     private:
         enum class State {
             IDLE,                   // 等待信号

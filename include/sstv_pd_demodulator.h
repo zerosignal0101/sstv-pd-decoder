@@ -4,6 +4,7 @@
 #include "sstv_types.h"
 #include <vector>
 #include <memory>
+#include <deque>
 #include <cmath>
 
 namespace sstv {
@@ -39,6 +40,12 @@ public:
      */
     void reset();
 
+    /**
+     * @brief 设置初始频率偏移（从 VIS 解码器传递的 AFC 偏移）
+     * @param afc_offset 频率偏移量 (Hz)
+     */
+    void set_afc_offset(double afc_offset);
+
 private:
     enum class SegmentType {
         IDLE,       // 等待同步信号
@@ -64,7 +71,8 @@ private:
     // 状态追踪
     double m_segment_timer;         // 当前段已持续的采样数
     int    m_current_line_idx;      // 当前处理到的行数 (0 - 495)
-    double m_freq_offset;           // 当前检测到的频偏 (Hz)
+    double m_afc_offset;           // 当前检测到的频偏 (Hz)
+    std::deque<double> m_median_buffer;
 
     // 原始频率缓冲区：存储当前段内的所有频率样本
     // 待一段结束时，再通过重采样算法提取出像素点
@@ -79,6 +87,7 @@ private:
     // 内部核心逻辑
     void process_current_segment();
     void finalize_line_group();
+    double get_smoothed_freq(double raw_freq);
 
     // 工具函数
     std::vector<uint8_t> resample_segment(const std::vector<double>& buffer, int target_count);
@@ -86,6 +95,7 @@ private:
 
     // 容错常量
     static constexpr double FREQ_TOLERANCE = 60.0;
+    static constexpr size_t MEDIAN_WINDOW = 9; // 奇数
     static constexpr double AFC_ALPHA = 0.1;
 };
 

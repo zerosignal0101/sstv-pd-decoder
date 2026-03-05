@@ -17,8 +17,8 @@ Decoder::Decoder(double sample_rate)
         m_resampler = std::make_unique<dsp::Resampler>(sample_rate, INTERNAL_SAMPLE_RATE);
         // std::cout << "Resampler initialized: " << sample_rate << "Hz -> " << INTERNAL_SAMPLE_RATE << "Hz" << std::endl;
     }
-    // Bandpass for SSTV audio spectrum (e.g., 500 Hz to 2500 Hz)
-    m_bandpass_filter = std::make_unique<dsp::FIRFilter>(FIR_TAP_COUNT, INTERNAL_SAMPLE_RATE, 500.0, 2500.0);
+    // Bandpass for SSTV audio spectrum
+    m_bandpass_filter = std::make_unique<dsp::FIRFilter>(FIR_TAP_COUNT, INTERNAL_SAMPLE_RATE, 500.0, 3000.0);
     m_freq_estimator = std::make_unique<dsp::FrequencyEstimator>(INTERNAL_SAMPLE_RATE);
 
     // Initialize protocol components with internal callbacks
@@ -132,6 +132,10 @@ void Decoder::handle_mode_detected(const SSTVMode& mode) {
             auto it = PD_TIMINGS_MAP.find(m_current_mode.vis_code);
             if (it != PD_TIMINGS_MAP.end()) {
                 m_pd_demodulator->configure(m_current_mode, it->second);
+                // 从 VIS 解码器获取 AFC 偏移并传递给 PD 解调器
+                double vis_afc_offset = m_vis_decoder->get_afc_offset();
+                std::cout << "Pass AFC offset to PD demodulator: " << vis_afc_offset << "Hz" << std::endl;
+                m_pd_demodulator->set_afc_offset(vis_afc_offset);
                 m_state = State::DECODING_IMAGE_DATA;
             }
             break;
