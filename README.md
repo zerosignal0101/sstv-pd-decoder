@@ -18,9 +18,9 @@ This project focuses on decoding the **PD modes** (e.g., PD120, PD180, PD240).
 ### **Technical Specifications (Operational Limits)**
 
 | Metric                 | Decoding Limit | Status                            |
-| :--------------------- | :------------- | :-------------------------------- |
+| :--------------------- |:---------------| :-------------------------------- |
 | Minimum SNR            | 4 dB           | Ultra-low signal recovery         |
-| Frequency Offset       | $\pm$500 Hz    | Handles significant carrier shift |
+| Frequency Offset       | ±500 Hz        | Handles significant carrier shift |
 | Clock Drift (Positive) | +2000 ppm      | Extremely tolerant to fast clocks |
 | Clock Drift (Negative) | -500 ppm       | Reliable for typical soundcards   |
 | Multipath Tolerance    | 5ms / 50ms     | Resilient to long-delay echoes    |
