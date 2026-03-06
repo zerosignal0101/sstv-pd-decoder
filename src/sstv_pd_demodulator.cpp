@@ -136,7 +136,7 @@ bool PDDemodulator::process(float sample, double freq) {
                     // std::cout << "Sync duration sample num: " << sync_duration_samples <<
                     //     " Porch duration sample num: " << porch_duration_samples << std::endl;
                     m_current_segment = SegmentType::PORCH;
-                    m_segment_timer = static_cast<double>(MEDIAN_WINDOW) / 2;
+                    m_segment_timer = static_cast<double>(MEDIAN_WINDOW + 1) / 2;
                     break;
                 }
             }

@@ -313,6 +313,7 @@ class ComprehensiveTester:
     def __init__(self, input_image: str):
         self.input_image = input_image
         self.original_img = None
+        self.base_signal = None
         self.runner = SSTVTestRunner(SAMPLE_RATE)
         self.results = []
 
@@ -330,9 +331,11 @@ class ComprehensiveTester:
 
     def generate_base_signal(self) -> np.ndarray:
         """生成基础 PD120 信号"""
-        Y, Cr, Cb = rgb_to_ycrcb(self.input_image)
-        spec = generate_tone_sequence(Y, Cr, Cb)
-        return synthesize_waveform(spec)
+        if self.base_signal is None:
+            Y, Cr, Cb = rgb_to_ycrcb(self.input_image)
+            spec = generate_tone_sequence(Y, Cr, Cb)
+            self.base_signal = synthesize_waveform(spec)
+        return self.base_signal
 
     def run_single_test(self, test_name: str, challenges: Dict) -> Dict:
         """运行单个测试"""
@@ -367,13 +370,13 @@ class ComprehensiveTester:
 
         # 限幅
         waveform = np.clip(waveform, -1.0, 1.0)
-        
+
         # 保存 RAW 文件
         raw_path = os.path.join(OUTPUT_DIR, "raw_files", f"{test_name}.raw")
-        waveform_padded = np.pad(waveform, (0, 2048), mode='constant')
+        waveform_padded = np.pad(waveform, (2048, 2048), mode='constant')
         with open(raw_path, 'wb') as f:
             f.write(waveform_padded.astype(np.float32).tobytes())
-            
+
         # 保存 WAV
         wav_path = os.path.join(OUTPUT_DIR, "wav_files", f"{test_name}.wav")
         wav_data = (waveform_padded * 32767).astype(np.int16)
