@@ -13,7 +13,15 @@ PDDemodulator::PDDemodulator(double sample_rate,
       m_on_line_decoded(on_line_decoded_cb),
       m_on_image_complete(on_image_complete_cb)
 {
+    init_filters();
     reset();
+}
+
+void PDDemodulator::init_filters() {
+    m_iir1200.setup_bandpass(1200.0 + m_afc_offset, 100.0, m_sample_rate);
+    m_iir1500.setup_bandpass(1500.0 + m_afc_offset, 100.0, m_sample_rate);
+    m_lpf1200.setup_lowpass(50.0, m_sample_rate);
+    m_lpf1500.setup_lowpass(50.0, m_sample_rate);
 }
 
 void PDDemodulator::configure(const SSTVMode& mode, const PDTimings& timings) {
@@ -30,6 +38,8 @@ void PDDemodulator::reset() {
     m_current_segment = SegmentType::IDLE;
     m_segment_timer = 0;
     m_current_line_idx = 0;
+    // 中值滤波重置
+    m_median_buffer.clear();
     // AFC 重置
     m_afc_offset = 0.0;
     m_segment_buffer.clear();
@@ -42,10 +52,32 @@ void PDDemodulator::reset() {
 void PDDemodulator::set_afc_offset(double afc_offset) {
     // 从 VIS 解码器继承 AFC 偏移，用于数据段解调
     m_afc_offset = afc_offset;
+    init_filters();
     // std::cout << "PD Demodulator: Initial freq offset set to " << freq_offset << " Hz" << std::endl;
 }
 
-bool PDDemodulator::process_frequency(double freq) {
+double PDDemodulator::get_smoothed_freq(double raw_freq) {
+    m_median_buffer.push_back(raw_freq);
+    if (m_median_buffer.size() > MEDIAN_WINDOW) m_median_buffer.pop_front();
+
+    std::vector<double> sorted = {m_median_buffer.begin(), m_median_buffer.end()};
+    std::sort(sorted.begin(), sorted.end());
+    return sorted[sorted.size() / 2];
+}
+
+bool PDDemodulator::process(float sample, double freq) {
+    // 1. 提取 1200Hz 通道包络
+    float s12 = m_iir1200.process(sample);
+    float env12 = m_lpf1200.process(std::abs(s12));
+
+    // 2. 提取 1500Hz 参考通道包络
+    float s15 = m_iir1500.process(sample);
+    float env15 = m_lpf1500.process(std::abs(s15));
+
+    // 3. 动态更新背景噪声水平 (Slow Attack, Fast Release)
+    // 用于处理长时间的静默或增益变化
+    m_adaptive_threshold = 0.999f * m_adaptive_threshold + 0.001f * (env12 + 0.005f);
+
     double corrected_freq = freq - m_afc_offset;
 
     m_segment_timer += 1.0;
@@ -67,19 +99,22 @@ bool PDDemodulator::process_frequency(double freq) {
             //     exit(0);
             // }
             // IDLE -> SYNC 是硬同步点，这里必须归零，这是为了对齐发送端的时钟
-            if (std::abs(corrected_freq - SYNC_FREQ) < FREQ_TOLERANCE) {
-                // std::cout << "Transit to SYNC: " << corrected_freq << " Hz" << std::endl;
+            if (env12 > m_adaptive_threshold && env12 > env15 * 2.0) {
                 m_current_segment = SegmentType::SYNC;
                 m_segment_timer = 0;
+                // 重置中值滤波
+                m_median_buffer.clear();
             }
             break;
         }
 
         case SegmentType::SYNC: {
-            if (m_segment_timer > (5.0 * m_samples_per_ms) &&
-                m_segment_timer < (15.0 * m_samples_per_ms)) {
+            double smoothed_freq = get_smoothed_freq(freq);  // 使用原始 freq 计算 AFC 偏置
+            // std::cout << "Debug SYNC [" << m_segment_timer << "]: corrected_freq = " << corrected_freq << " env12 = " << env12 << " env15 = " << env15 << std::endl;
+            if (m_segment_timer > (sync_duration_samples * 0.25) &&
+                m_segment_timer < (sync_duration_samples * 0.75)) {
 
-                double measured_offset = freq - SYNC_FREQ;
+                double measured_offset = smoothed_freq - SYNC_FREQ;
 
                 // 使用 IIR 滤波器平滑 offset
                 // 新偏移 = 10% 当前测量值 + 90% 历史记录
@@ -87,12 +122,16 @@ bool PDDemodulator::process_frequency(double freq) {
                 }
 
             // 探测 1200 -> 1500 的跳变沿作为 PORCH 的起始（硬同步）
-            if (m_segment_timer > (10.0 * m_samples_per_ms)) {
+            if (m_segment_timer > (sync_duration_samples * 0.5)) {
                 // 如果修正后的频率更接近黑色 (1500)，说明同步结束了
-                if (std::abs(corrected_freq - BLACK_FREQ) < std::abs(corrected_freq - SYNC_FREQ)) {
+                double corrected_smoothed_freq = smoothed_freq - m_afc_offset;
+                if (std::abs(corrected_smoothed_freq - BLACK_FREQ) < std::abs(corrected_smoothed_freq - SYNC_FREQ)) {
                     // std::cout << "Transit to PORCH with m_afc_offset: " << m_afc_offset << "Hz" << std::endl;
+                    // std::cout << "Corrected smoothed freq:" << corrected_smoothed_freq << " Smoothed freq: " << smoothed_freq << " Origianl freq: " << freq << std::endl;
+                    // std::cout << "Sync duration sample num: " << sync_duration_samples <<
+                    //     " Porch duration sample num: " << porch_duration_samples << std::endl;
                     m_current_segment = SegmentType::PORCH;
-                    m_segment_timer = 0;
+                    m_segment_timer = static_cast<double>(MEDIAN_WINDOW) / 2;
                     break;
                 }
             }
@@ -105,15 +144,28 @@ bool PDDemodulator::process_frequency(double freq) {
             break;
         }
 
-        case SegmentType::PORCH:
+        case SegmentType::PORCH:{
+            // // 调试代码：输出 corrected_freq 并限制输出次数
+            // static int debug_counter = 0;
+            // if (debug_counter < 20) {
+            //     std::cout << "Debug [" << debug_counter << "]: corrected_freq = " << corrected_freq << " env12 = " << env12 << " env15 = " << env15 << std::endl;
+            //     debug_counter++;
+            // } else if (debug_counter == 20) {
+            //     std::cout << "Reached 20 debug outputs. Stopping output..." << std::endl;
+            //     // debug_counter++;
+            //     exit(0);
+            // }
             if (m_segment_timer >= porch_duration_samples) {
                 m_current_segment = SegmentType::Y1;
                 // 这里也进行硬重置，开始数据段的精确计数
+                // // Debug 调试代码重置
+                // debug_counter = 0;
                 m_segment_timer = 0;
                 m_segment_buffer.clear();
                 m_segment_buffer.reserve(static_cast<size_t>(segment_duration_samples + 10));
             }
             break;
+        }
 
         case SegmentType::Y1:
         case SegmentType::RY:

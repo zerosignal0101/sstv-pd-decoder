@@ -12,6 +12,8 @@
 #include <functional>
 #include <memory>
 #include <iostream>
+#include <ranges>
+#include <algorithm> // For std::min
 
 namespace sstv {
 

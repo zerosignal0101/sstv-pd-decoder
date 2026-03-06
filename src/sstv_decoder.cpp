@@ -1,5 +1,4 @@
 #include "sstv_decoder.h"
-#include <algorithm> // For std::min
 
 namespace sstv {
 
@@ -77,7 +76,7 @@ void Decoder::process(const float* samples, size_t count) {
     // std::cout << std::endl;
     // return;
 
-    for (double freq : estimated_frequencies) {
+    for (const auto& [freq, sample] : std::views::zip(estimated_frequencies, filtered_samples)) {
         m_sample_timer += 1.0;
         switch (m_state) {
             case State::SEARCHING_VIS: {
@@ -90,7 +89,7 @@ void Decoder::process(const float* samples, size_t count) {
             case State::DECODING_IMAGE_DATA: {
                 switch (m_current_mode.family) {
                     case SSTVFamily::PD: {
-                        m_pd_demodulator->process_frequency(freq);
+                        m_pd_demodulator->process(sample, freq);
                         break;
                     }
                     case SSTVFamily::UNKNOWN:

@@ -64,7 +64,7 @@ namespace sstv {
 
         // 常量：允许连续错误的时间（毫秒），超过此时间则重置
         const double MAX_ERROR_TIME_MS = 15.0;
-        const size_t MEDIAN_WINDOW = 9; // 奇数
+        const size_t MEDIAN_WINDOW = 25; // 奇数
     };
 
 } // namespace sstv

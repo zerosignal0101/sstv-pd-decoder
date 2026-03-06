@@ -2,6 +2,7 @@
 #pragma once
 
 #include "sstv_types.h"
+#include "dsp_filters.h"
 #include <vector>
 #include <memory>
 #include <deque>
@@ -30,10 +31,11 @@ public:
 
     /**
      * @brief 处理从频率估计器得到的频率流
+     * @param sample 原始样点
      * @param freq 原始频率 (Hz)
      * @return 如果图像传输完成返回 true
      */
-    bool process_frequency(double freq);
+    bool process(float sample, double freq);
 
     /**
      * @brief 重置解调器状态，准备接收新的一帧
@@ -47,6 +49,13 @@ public:
     void set_afc_offset(double afc_offset);
 
 private:
+    dsp::Biquad m_iir1200;
+    dsp::Biquad m_iir1500;
+    dsp::Biquad m_lpf1200;
+    dsp::Biquad m_lpf1500;
+
+    float m_adaptive_threshold = 0.01f;
+
     enum class SegmentType {
         IDLE,       // 等待同步信号
         SYNC,       // 1200Hz 同步脉冲 (20ms)
@@ -72,6 +81,7 @@ private:
     double m_segment_timer;         // 当前段已持续的采样数
     int    m_current_line_idx;      // 当前处理到的行数 (0 - 495)
     double m_afc_offset;           // 当前检测到的频偏 (Hz)
+    std::deque<double> m_median_buffer;
 
     // 原始频率缓冲区：存储当前段内的所有频率样本
     // 待一段结束时，再通过重采样算法提取出像素点
@@ -86,6 +96,8 @@ private:
     // 内部核心逻辑
     void process_current_segment();
     void finalize_line_group();
+    void init_filters();
+    double get_smoothed_freq(double raw_freq);
 
     // 工具函数
     std::vector<uint8_t> resample_segment(const std::vector<double>& buffer, int target_count);
@@ -93,6 +105,7 @@ private:
 
     // 容错常量
     static constexpr double FREQ_TOLERANCE = 60.0;
+    static constexpr size_t MEDIAN_WINDOW = 9; // 奇数
     static constexpr double AFC_ALPHA = 0.1;
 };
 
