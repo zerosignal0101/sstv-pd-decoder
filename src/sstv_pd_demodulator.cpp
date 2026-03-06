@@ -112,7 +112,7 @@ bool PDDemodulator::process(float sample, double freq) {
             double smoothed_freq = get_smoothed_freq(freq);  // 使用原始 freq 计算 AFC 偏置
             // std::cout << "Debug SYNC [" << m_segment_timer << "]: corrected_freq = " << corrected_freq << " env12 = " << env12 << " env15 = " << env15 << std::endl;
             if (m_segment_timer > (sync_duration_samples * 0.25) &&
-                m_segment_timer < (sync_duration_samples * 0.75)) {
+                m_segment_timer < (sync_duration_samples * 0.5)) {
 
                 double measured_offset = smoothed_freq - SYNC_FREQ;
 
@@ -139,6 +139,10 @@ bool PDDemodulator::process(float sample, double freq) {
             // 超时退出
             if (m_segment_timer >= sync_duration_samples) {
                 m_current_segment = SegmentType::PORCH;
+                // std::cout << "Timeout! Transit to PORCH with m_afc_offset: " << m_afc_offset << "Hz" << std::endl;
+                // std::cout << "Smoothed freq: " << smoothed_freq << " Origianl freq: " << freq << std::endl;
+                // std::cout << "Sync duration sample num: " << sync_duration_samples <<
+                //     " Porch duration sample num: " << porch_duration_samples << std::endl;
                 m_segment_timer = 0;
             }
             break;
@@ -147,11 +151,11 @@ bool PDDemodulator::process(float sample, double freq) {
         case SegmentType::PORCH:{
             // // 调试代码：输出 corrected_freq 并限制输出次数
             // static int debug_counter = 0;
-            // if (debug_counter < 20) {
+            // if (debug_counter < 30) {
             //     std::cout << "Debug [" << debug_counter << "]: corrected_freq = " << corrected_freq << " env12 = " << env12 << " env15 = " << env15 << std::endl;
             //     debug_counter++;
-            // } else if (debug_counter == 20) {
-            //     std::cout << "Reached 20 debug outputs. Stopping output..." << std::endl;
+            // } else if (debug_counter == 30) {
+            //     std::cout << "Reached 30 debug outputs. Stopping output..." << std::endl;
             //     // debug_counter++;
             //     exit(0);
             // }

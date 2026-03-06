@@ -23,6 +23,7 @@ namespace sstv {
     private:
         enum class State {
             IDLE,                   // 等待信号
+            PREAMBLE_WAIT_0,          // 完成第一个前导音
             PREAMBLE,               // 8个前导音 (1900/1500/2300...)
             LEADER_BURST_1,         // 300ms 1900Hz
             BREAK_1200,             // 10ms 1200Hz

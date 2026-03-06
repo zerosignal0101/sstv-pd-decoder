@@ -67,13 +67,13 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
             // 寻找第一个前导音 (1900Hz)
             if (is_freq_near(corrected_freq, DEFAULT_PREAMBLE_TONES[0].frequency, 600.0)) {
                 if (m_state_timer_samples >= ((DEFAULT_PREAMBLE_TONES[0].duration_ms - 5.0) * m_samples_per_ms)) {
-                    m_preamble_step = 1; // 已经完成第0个音
+                    m_preamble_step = 0;
                     m_afc_offset = freq - DEFAULT_PREAMBLE_TONES[0].frequency;
                     // // 打印调试信息，便于在 log 中观察偏置锁定情况
                     // std::cout << "[VIS] Signal Detected! Avg Freq: " << freq
                     //           << "Hz, Estimated Offset: " << m_afc_offset << "Hz" << std::endl;
                     // exit(0);
-                    transition_to(State::PREAMBLE);
+                    transition_to(State::PREAMBLE_WAIT_0);
                 }
             } else {
                 // std::cout << "IDLE Not satified: " << corrected_freq << " " << DEFAULT_PREAMBLE_TONES[0].frequency << std::endl;
@@ -81,7 +81,43 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
             }
             break;
 
+        case State::PREAMBLE_WAIT_0: {
+            if (m_state_timer_samples >= (2.5 * m_samples_per_ms)) {
+                m_preamble_step = 1; // 已经完成第0个音
+                transition_to(State::PREAMBLE);
+            }
+        }
+
         case State::PREAMBLE: {
+            // // 调试代码：输出 corrected_freq 并限制输出次数
+            // static int debug_counter = 0;
+            // if (debug_counter < 8000) {
+            //     if (debug_counter % 40 == 0) {
+            //         std::cout << "\n=== Debug [" << debug_counter << "] ===" << std::endl;
+            //         std::cout << "State: PREAMBLE " << m_preamble_step << std::endl;
+            //         std::cout << "AFC offset: " << m_afc_offset << std::endl;
+            //         std::cout << "Current Freq: " << corrected_freq << " Hz" << std::endl;
+            //
+            //         // 时间相关的状态
+            //         double elapsed_ms = static_cast<double>(m_state_timer_samples) / m_samples_per_ms;
+            //         std::cout << "State Timer: " << m_state_timer_samples << " samples ("
+            //                   << std::fixed << std::setprecision(2) << elapsed_ms << " ms)" << std::endl;
+            //
+            //         // 进度百分比
+            //         double progress_pct = (m_state_timer_samples * 100.0) / (VIS_BIT_DURATION_MS * m_samples_per_ms);
+            //         std::cout << "Progress: " << std::fixed << std::setprecision(1) << progress_pct << "%" << std::endl;
+            //
+            //         // 错误计数器
+            //         std::cout << "Error Count: " << m_error_count << "/" << (MAX_ERROR_TIME_MS * m_samples_per_ms) << std::endl;
+            //     }
+            //     debug_counter++;
+            // } else if (debug_counter == 8000) {
+            //     std::cout << "\n=== Debug Summary ===" << std::endl;
+            //     std::cout << "Reached max debug outputs (8000)." << std::endl;
+            //     std::cout << "Final Error Count: " << m_error_count << std::endl;
+            //     std::cout << "Exiting..." << std::endl;
+            //     exit(0);
+            // }
             const auto& target_tone = DEFAULT_PREAMBLE_TONES[m_preamble_step];
             if (is_freq_near(corrected_freq, target_tone.frequency, 80.0)) {
                 if (m_state_timer_samples >= (target_tone.duration_ms * m_samples_per_ms)) {
@@ -89,6 +125,7 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
                     // 进入下一个前缀检测，误差归零，计数器归零
                     // // 调试输出状态转换
                     // std::cout << "Preamble next, now m_preamble_step: " << m_preamble_step << std::endl;
+                    // std::cout << "Corrected freq: " << corrected_freq << std::endl;
                     m_error_count = 0;
                     m_state_timer_samples = 0;
                     if (m_preamble_step >= DEFAULT_PREAMBLE_TONES.size()) {
@@ -108,6 +145,35 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
         }
 
         case State::LEADER_BURST_1: {
+            // // 调试代码：输出 corrected_freq 并限制输出次数
+            // static int debug_counter = 0;
+            // if (debug_counter < 8000) {
+            //     if (debug_counter % 10 == 0) {
+            //         std::cout << "\n=== Debug [" << debug_counter << "] ===" << std::endl;
+            //         std::cout << "State: LEADER BURST 1 " << std::endl;
+            //         std::cout << "AFC offset: " << m_afc_offset << std::endl;
+            //         std::cout << "Current Freq: " << corrected_freq << " Hz" << std::endl;
+            //
+            //         // 时间相关的状态
+            //         double elapsed_ms = static_cast<double>(m_state_timer_samples) / m_samples_per_ms;
+            //         std::cout << "State Timer: " << m_state_timer_samples << " samples ("
+            //                   << std::fixed << std::setprecision(2) << elapsed_ms << " ms)" << std::endl;
+            //
+            //         // 进度百分比
+            //         double progress_pct = (m_state_timer_samples * 100.0) / (VIS_BIT_DURATION_MS * m_samples_per_ms);
+            //         std::cout << "Progress: " << std::fixed << std::setprecision(1) << progress_pct << "%" << std::endl;
+            //
+            //         // 错误计数器
+            //         std::cout << "Error Count: " << m_error_count << "/" << (MAX_ERROR_TIME_MS * m_samples_per_ms) << std::endl;
+            //     }
+            //     debug_counter++;
+            // } else if (debug_counter == 8000) {
+            //     std::cout << "\n=== Debug Summary ===" << std::endl;
+            //     std::cout << "Reached max debug outputs (8000)." << std::endl;
+            //     std::cout << "Final Error Count: " << m_error_count << std::endl;
+            //     std::cout << "Exiting..." << std::endl;
+            //     exit(0);
+            // }
             if (is_freq_near(corrected_freq, VIS_LEADER_BURST_FREQ, 100.0)) {
                 // 建议跳过前 50ms 的不稳定期
                 if (m_state_timer_samples > (50.0 * m_samples_per_ms)) {
@@ -129,25 +195,14 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
         }
 
         case State::BREAK_1200:{
-            if (is_freq_near(corrected_freq, VIS_BREAK_FREQ)) {
-                if (m_state_timer_samples >= (VIS_BREAK_DURATION_MS * m_samples_per_ms)) {
-                    transition_to(State::LEADER_BURST_2);
-                }
-            } else {
-                if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
-            }
             // // 调试代码：输出 corrected_freq 并限制输出次数
             // static int debug_counter = 0;
             // if (debug_counter < 8000) {
-            //     if (debug_counter % 40 == 0) {
+            //     if (debug_counter % 5 == 0) {
             //         std::cout << "\n=== Debug [" << debug_counter << "] ===" << std::endl;
-            //         std::cout << "State: BREAK" << std::endl;
+            //         std::cout << "State: BREAK " << std::endl;
             //         std::cout << "AFC offset: " << m_afc_offset << std::endl;
             //         std::cout << "Current Freq: " << corrected_freq << " Hz" << std::endl;
-            //         std::cout << "Frequency Diff: " << std::abs(corrected_freq - VIS_BREAK_FREQ) << " Hz" << std::endl;
-            //
-            //         bool is_near = is_freq_near(corrected_freq, VIS_BREAK_FREQ, 80.0);
-            //         std::cout << "Frequency Match: " << (is_near ? "YES" : "NO") << std::endl;
             //
             //         // 时间相关的状态
             //         double elapsed_ms = static_cast<double>(m_state_timer_samples) / m_samples_per_ms;
@@ -155,13 +210,11 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
             //                   << std::fixed << std::setprecision(2) << elapsed_ms << " ms)" << std::endl;
             //
             //         // 进度百分比
-            //         double progress_pct = (m_state_timer_samples * 100.0) / (VIS_BREAK_DURATION_MS * m_samples_per_ms);
+            //         double progress_pct = (m_state_timer_samples * 100.0) / (VIS_BIT_DURATION_MS * m_samples_per_ms);
             //         std::cout << "Progress: " << std::fixed << std::setprecision(1) << progress_pct << "%" << std::endl;
             //
             //         // 错误计数器
             //         std::cout << "Error Count: " << m_error_count << "/" << (MAX_ERROR_TIME_MS * m_samples_per_ms) << std::endl;
-            //
-            //         std::cout << "==========================" << std::endl;
             //     }
             //     debug_counter++;
             // } else if (debug_counter == 8000) {
@@ -171,6 +224,13 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
             //     std::cout << "Exiting..." << std::endl;
             //     exit(0);
             // }
+            if (is_freq_near(corrected_freq, VIS_BREAK_FREQ)) {
+                if (m_state_timer_samples >= (VIS_BREAK_DURATION_MS * m_samples_per_ms)) {
+                    transition_to(State::LEADER_BURST_2);
+                }
+            } else {
+                if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
+            }
             break;
         }
 
@@ -196,7 +256,36 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
             }
             break;
 
-        case State::DATA_BITS:
+        case State::DATA_BITS:{
+            // // 调试代码：输出 corrected_freq 并限制输出次数
+            // static int debug_counter = 0;
+            // if (debug_counter < 8000) {
+            //     if (debug_counter % 20 == 0) {
+            //         std::cout << "\n=== Debug [" << debug_counter << "] ===" << std::endl;
+            //         std::cout << "State: DATA BIT " << m_bit_count << std::endl;
+            //         std::cout << "AFC offset: " << m_afc_offset << std::endl;
+            //         std::cout << "Current Freq: " << corrected_freq << " Hz" << std::endl;
+            //
+            //         // 时间相关的状态
+            //         double elapsed_ms = static_cast<double>(m_state_timer_samples) / m_samples_per_ms;
+            //         std::cout << "State Timer: " << m_state_timer_samples << " samples ("
+            //                   << std::fixed << std::setprecision(2) << elapsed_ms << " ms)" << std::endl;
+            //
+            //         // 进度百分比
+            //         double progress_pct = (m_state_timer_samples * 100.0) / (VIS_BIT_DURATION_MS * m_samples_per_ms);
+            //         std::cout << "Progress: " << std::fixed << std::setprecision(1) << progress_pct << "%" << std::endl;
+            //
+            //         // 错误计数器
+            //         std::cout << "Error Count: " << m_error_count << "/" << (MAX_ERROR_TIME_MS * m_samples_per_ms) << std::endl;
+            //     }
+            //     debug_counter++;
+            // } else if (debug_counter == 8000) {
+            //     std::cout << "\n=== Debug Summary ===" << std::endl;
+            //     std::cout << "Reached max debug outputs (8000)." << std::endl;
+            //     std::cout << "Final Error Count: " << m_error_count << std::endl;
+            //     std::cout << "Exiting..." << std::endl;
+            //     exit(0);
+            // }
             // 累加整个位周期内的频率
             m_bit_freq_accumulator += corrected_freq;
             m_bit_sample_count++;
@@ -220,8 +309,38 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
                 if (m_bit_count >= 7) transition_to(State::PARITY_BIT);
             }
             break;
+        }
 
-        case State::PARITY_BIT:
+        case State::PARITY_BIT:{
+            // // 调试代码：输出 corrected_freq 并限制输出次数
+            // static int debug_counter = 0;
+            // if (debug_counter < 8000) {
+            //     if (debug_counter % 10 == 0) {
+            //         std::cout << "\n=== Debug [" << debug_counter << "] ===" << std::endl;
+            //         std::cout << "State: PARITY BIT" << std::endl;
+            //         std::cout << "AFC offset: " << m_afc_offset << std::endl;
+            //         std::cout << "Current Freq: " << corrected_freq << " Hz" << std::endl;
+            //
+            //         // 时间相关的状态
+            //         double elapsed_ms = static_cast<double>(m_state_timer_samples) / m_samples_per_ms;
+            //         std::cout << "State Timer: " << m_state_timer_samples << " samples ("
+            //                   << std::fixed << std::setprecision(2) << elapsed_ms << " ms)" << std::endl;
+            //
+            //         // 进度百分比
+            //         double progress_pct = (m_state_timer_samples * 100.0) / (VIS_BIT_DURATION_MS * m_samples_per_ms);
+            //         std::cout << "Progress: " << std::fixed << std::setprecision(1) << progress_pct << "%" << std::endl;
+            //
+            //         // 错误计数器
+            //         std::cout << "Error Count: " << m_error_count << "/" << (MAX_ERROR_TIME_MS * m_samples_per_ms) << std::endl;
+            //     }
+            //     debug_counter++;
+            // } else if (debug_counter == 8000) {
+            //     std::cout << "\n=== Debug Summary ===" << std::endl;
+            //     std::cout << "Reached max debug outputs (8000)." << std::endl;
+            //     std::cout << "Final Error Count: " << m_error_count << std::endl;
+            //     std::cout << "Exiting..." << std::endl;
+            //     exit(0);
+            // }
             m_bit_freq_accumulator += corrected_freq;
             m_bit_sample_count++;
 
@@ -245,8 +364,38 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
                 }
             }
             break;
+        }
 
-        case State::STOP_BIT:
+        case State::STOP_BIT:{
+            // // 调试代码：输出 corrected_freq 并限制输出次数
+            // static int debug_counter = 0;
+            // if (debug_counter < 8000) {
+            //     if (debug_counter % 10 == 0) {
+            //         std::cout << "\n=== Debug [" << debug_counter << "] ===" << std::endl;
+            //         std::cout << "State: STOP BIT" << std::endl;
+            //         std::cout << "AFC offset: " << m_afc_offset << std::endl;
+            //         std::cout << "Current Freq: " << corrected_freq << " Hz" << std::endl;
+            //
+            //         // 时间相关的状态
+            //         double elapsed_ms = static_cast<double>(m_state_timer_samples) / m_samples_per_ms;
+            //         std::cout << "State Timer: " << m_state_timer_samples << " samples ("
+            //                   << std::fixed << std::setprecision(2) << elapsed_ms << " ms)" << std::endl;
+            //
+            //         // 进度百分比
+            //         double progress_pct = (m_state_timer_samples * 100.0) / (VIS_BIT_DURATION_MS * m_samples_per_ms);
+            //         std::cout << "Progress: " << std::fixed << std::setprecision(1) << progress_pct << "%" << std::endl;
+            //
+            //         // 错误计数器
+            //         std::cout << "Error Count: " << m_error_count << "/" << (MAX_ERROR_TIME_MS * m_samples_per_ms) << std::endl;
+            //     }
+            //     debug_counter++;
+            // } else if (debug_counter == 8000) {
+            //     std::cout << "\n=== Debug Summary ===" << std::endl;
+            //     std::cout << "Reached max debug outputs (8000)." << std::endl;
+            //     std::cout << "Final Error Count: " << m_error_count << std::endl;
+            //     std::cout << "Exiting..." << std::endl;
+            //     exit(0);
+            // }
             if (is_freq_near(corrected_freq, VIS_START_STOP_FREQ)) {
                 if (m_state_timer_samples >= (VIS_BIT_DURATION_MS * m_samples_per_ms)) {
                     auto it = GLOBAL_VIS_MAP.find(m_decoded_vis_bits);
@@ -264,6 +413,7 @@ bool VISDecoder::process_frequency(const double& raw_freq) {
                 if (++m_error_count > (MAX_ERROR_TIME_MS * m_samples_per_ms)) reset();
             }
             break;
+        }
 
         case State::COMPLETE:
             return true;

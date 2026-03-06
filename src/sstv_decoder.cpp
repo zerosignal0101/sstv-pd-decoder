@@ -76,7 +76,11 @@ void Decoder::process(const float* samples, size_t count) {
     // std::cout << std::endl;
     // return;
 
-    for (const auto& [freq, sample] : std::views::zip(estimated_frequencies, filtered_samples)) {
+    size_t n = std::min(estimated_frequencies.size(), filtered_samples.size());
+    for (size_t i = 0; i < n; ++i) {
+        double freq = estimated_frequencies[i];
+        float sample = filtered_samples[i];
+
         m_sample_timer += 1.0;
         switch (m_state) {
             case State::SEARCHING_VIS: {
