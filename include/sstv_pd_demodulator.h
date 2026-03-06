@@ -97,6 +97,7 @@ private:
     void process_current_segment();
     void finalize_line_group();
     void init_filters();
+    void reserve_samples(double reserved_samples);
     double get_smoothed_freq(double raw_freq);
 
     // 工具函数

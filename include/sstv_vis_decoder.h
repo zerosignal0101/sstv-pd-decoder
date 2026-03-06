@@ -23,7 +23,7 @@ namespace sstv {
     private:
         enum class State {
             IDLE,                   // 等待信号
-            PREAMBLE_WAIT_0,          // 完成第一个前导音
+            PREAMBLE_WAIT_1,        // 等待下一个前导音下降沿，初步校准时序
             PREAMBLE,               // 8个前导音 (1900/1500/2300...)
             LEADER_BURST_1,         // 300ms 1900Hz
             BREAK_1200,             // 10ms 1200Hz
@@ -58,9 +58,9 @@ namespace sstv {
         int    m_bit_sample_count;
 
         // 内部逻辑
-        void transition_to(State new_state);
+        void transition_to(State new_state, double reserved_time_ms);
+        void reserve_time(double reserved_time_ms);
         bool is_freq_near(double freq, double target, double tolerance = 60.0);
-        void handle_bit_decoding(double avg_freq);
         double get_smoothed_freq(double raw_freq);
 
         // 常量：允许连续错误的时间（毫秒），超过此时间则重置

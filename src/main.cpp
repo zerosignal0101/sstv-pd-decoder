@@ -65,7 +65,7 @@ int main() {
 
     // --- 模拟传输 (读取音频文件) ---
     std::vector<float> full_audio_signal;
-    const char* filename = R"(D:\C-Codes\Radio-HAM\sstv-toolkit\Space_Comms_PD180_SSTV_Test_Recording_sound.raw)";
+    const char* filename = R"(D:\C-Codes\Radio-HAM\sstv-toolkit\test_results\raw_files\snr_4dB.raw)";
 
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {

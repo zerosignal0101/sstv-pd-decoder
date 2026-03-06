@@ -65,6 +65,11 @@ double PDDemodulator::get_smoothed_freq(double raw_freq) {
     return sorted[sorted.size() / 2];
 }
 
+void PDDemodulator::reserve_samples(double reserved_samples)
+{
+    m_segment_timer = reserved_samples - m_segment_timer;
+}
+
 bool PDDemodulator::process(float sample, double freq) {
     // 1. 提取 1200Hz 通道包络
     float s12 = m_iir1200.process(sample);
@@ -143,7 +148,7 @@ bool PDDemodulator::process(float sample, double freq) {
                 // std::cout << "Smoothed freq: " << smoothed_freq << " Origianl freq: " << freq << std::endl;
                 // std::cout << "Sync duration sample num: " << sync_duration_samples <<
                 //     " Porch duration sample num: " << porch_duration_samples << std::endl;
-                m_segment_timer = 0;
+                reserve_samples(sync_duration_samples);
             }
             break;
         }
@@ -164,7 +169,7 @@ bool PDDemodulator::process(float sample, double freq) {
                 // 这里也进行硬重置，开始数据段的精确计数
                 // // Debug 调试代码重置
                 // debug_counter = 0;
-                m_segment_timer = 0;
+                reserve_samples(porch_duration_samples);
                 m_segment_buffer.clear();
                 m_segment_buffer.reserve(static_cast<size_t>(segment_duration_samples + 10));
             }
@@ -189,7 +194,7 @@ bool PDDemodulator::process(float sample, double freq) {
                     m_current_segment = SegmentType::IDLE;
                     // Y2 结束回到 IDLE，不需要保留误差，因为我们需要等待下一个 Sync 信号
                     // 下一次 Sync 检测会自动消除之前的累积误差
-                    m_segment_timer = 0;
+                    reserve_samples(segment_duration_samples);
                     m_segment_buffer.clear();
                     break; // 跳出 switch
                 }
