@@ -1,6 +1,6 @@
 # SSTV Decoder for PD modes
 
-A high-performance **Slow Scan Television (SSTV)** decoder written in **C++23** with Python bindings via `pybind11`.
+A high-performance **Slow Scan Television (SSTV)** decoder written in C++23 with Python bindings via `pybind11`.
 
 This project focuses on decoding the **PD modes** (e.g., PD120, PD180, PD240).
 
@@ -14,6 +14,18 @@ This project focuses on decoding the **PD modes** (e.g., PD120, PD180, PD240).
   * VIS (Vertical Interval Signaling) decoder with AFC.
   * PD Mode Demodulator (handling SYNC, PORCH, Y1, RY, BY, Y2 sequences).
 * **Interface**: Python API compatible with `numpy` arrays for audio input.
+
+### **Technical Specifications (Operational Limits)**
+
+| Metric                 | Decoding Limit | Status                            |
+| :--------------------- | :------------- | :-------------------------------- |
+| Minimum SNR            | 4 dB           | Ultra-low signal recovery         |
+| Frequency Offset       | $\pm$500 Hz    | Handles significant carrier shift |
+| Clock Drift (Positive) | +2000 ppm      | Extremely tolerant to fast clocks |
+| Clock Drift (Negative) | -500 ppm       | Reliable for typical soundcards   |
+| Multipath Tolerance    | 5ms / 50ms     | Resilient to long-delay echoes    |
+
+Tested with a script at `docs/pd120_comprehensive_test.py` in this repo.
 
 ## Requirements
 
